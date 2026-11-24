@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { ImagePlus, MessageCircle, Mic, Send, Square, X } from 'lucide-react';
+import { ImagePlus, MessageCircle, Mic, Reply, Send, Square, Trash2, X } from 'lucide-react';
+import { Drawer } from 'antd';
 import { API_BASE_URL } from '../constants';
 import type { Language } from '../types/auth';
 
@@ -18,7 +19,7 @@ type Message = {
   senderId: string; replyToId?: number | null; deleted?: boolean;
   userReaction?: string | null; adminReaction?: string | null; revision?: number;
 };
-const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '👏', '🎉', '😍', '😊', '🤔', '😎', '🤩', '💯', '✅', '👎', '😡', '🙌', '💚', '✨', '👀', '🤝', '💪'];
 type Conversation = { userId: string; username: string | null; unread: number; lastMessageId: number };
 type Customer = { id: string; role: string; username: string; email: string };
 type Attachment = { kind: 'IMAGE' | 'VOICE'; file: File; requestId: string };
@@ -251,7 +252,21 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   const [older, setOlder] = useState(false);
   const [draft, setDraft] = useState('');
   const [replyToId, setReplyToId] = useState<number>();
+  const [jumpToId, setJumpToId] = useState<number>();
+  const [highlightedId, setHighlightedId] = useState<number>();
+  const jumpCursor = useRef<number | undefined>(undefined);
+  const highlightTimer = useRef<number | undefined>(undefined);
+  const messageList = useRef<HTMLUListElement>(null);
   const [actionId, setActionId] = useState<number>();
+  const press = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const suppressClickUntil = useRef(0);
+
+  function cancelPress() {
+    if (press.current) window.clearTimeout(press.current.timer);
+    press.current = null;
+  }
+
+  useEffect(() => cancelPress, []);
   const [error, setError] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [sending, setSending] = useState(false);
@@ -284,6 +299,9 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
     setMessages([]);
     setLoaded(false);
     setOlder(false);
+    setJumpToId(undefined);
+    setHighlightedId(undefined);
+    jumpCursor.current = undefined;
     setPeerActivities({});
     seen.current = 0;
     scrollOnChange.current = true;
@@ -296,6 +314,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
       ws.onopen = () => ws.send(JSON.stringify({ type: 'AUTH', accessToken: token }));
       ws.onclose = () => {
         if (!alive) return;
+        jumpCursor.current = undefined;
         setReady(false);
         setLoaded(false);
         setPeerActivities({});
@@ -381,6 +400,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
             });
             break;
           case 'ERROR':
+            if (event.requestId === 'reply-jump') setJumpToId(undefined);
             if (event.requestId === pendingText.current?.requestId) {
               pendingText.current = null;
               setSending(false);
@@ -438,6 +458,32 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
     document.addEventListener('visibilitychange', markRead);
     return () => document.removeEventListener('visibilitychange', markRead);
   }, [messages, ready, admin, userId]);
+
+  useEffect(() => {
+    if (!jumpToId) return;
+    const target = messageList.current?.querySelector(`[data-message-id="${jumpToId}"]`);
+    if (target) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'instant' : 'smooth' });
+      setHighlightedId(jumpToId);
+      window.clearTimeout(highlightTimer.current);
+      highlightTimer.current = window.setTimeout(() => setHighlightedId(undefined), 1800);
+      setJumpToId(undefined);
+      return;
+    }
+    if (!loaded || !ready) return;
+    const first = messages[0]?.id;
+    if (!older || first === undefined || jumpToId >= first) {
+      setJumpToId(undefined);
+      setError(t.failed);
+      return;
+    }
+    if (first !== jumpCursor.current && frame('HISTORY', { requestId: 'reply-jump', beforeId: first })) {
+      jumpCursor.current = first;
+    }
+  }, [jumpToId, messages, loaded, ready, older, userId, t.failed]);
+
+  useEffect(() => () => window.clearTimeout(highlightTimer.current), []);
 
   useEffect(() => () => {
     generation.current++;
@@ -615,6 +661,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
 
   const active = Object.values(peerActivities);
   const messagesById = new Map(messages.map(message => [message.id, message]));
+  const actionMessage = onBack && actionId ? messagesById.get(actionId) : undefined;
   function quote(id: number) {
     const original = messagesById.get(id);
     if (!original) return labels.quote + ' #' + id;
@@ -670,26 +717,67 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
         <div className={`overflow-y-auto overscroll-contain bg-slate-50 px-3 py-3 sm:px-5 ${fullScreen
           ? 'min-h-0 flex-1' : 'h-[48dvh] min-h-48 sm:h-[54dvh]'}`}>
           {older && <button onClick={() => frame('HISTORY', { requestId: 'older', beforeId: messages[0]?.id })}
-            disabled={!ready} className="mx-auto mb-3 block min-h-11 rounded-full border border-slate-200 bg-white px-4 text-sm">{t.older}</button>}
+            disabled={!ready || !!jumpToId} className="mx-auto mb-3 block min-h-11 rounded-full border border-slate-200 bg-white px-4 text-sm">{t.older}</button>}
           {loaded && messages.length === 0 && <p className="py-8 text-center text-sm text-slate-600">{t.empty}</p>}
-          <ul className="space-y-2">
+          <ul ref={messageList} className="space-y-2">
             {messages.map(message => {
               const own = message.senderAdmin === admin;
-              return <li key={message.id} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[88%] rounded-2xl px-3 py-2 sm:max-w-[75%] ${own ? 'bg-green-100' : 'border border-slate-200 bg-white'}`}>
-                  {!message.deleted && message.replyToId && <p className="mb-1 truncate rounded border-l-2 border-green-600 bg-white/70 px-2 py-1 text-xs text-slate-700">
-                    {quote(message.replyToId)}
-                  </p>}
+              const reactions = [message.userReaction, message.adminReaction].filter((emoji): emoji is string => !!emoji);
+              const myReaction = admin ? message.adminReaction : message.userReaction;
+              return <li key={message.id} data-message-id={message.id} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
+                <div className={`min-w-0 max-w-[88%] rounded-2xl px-3 py-2 transition-shadow sm:max-w-[75%] ${own ? 'bg-green-100' : 'border border-slate-200 bg-white'} ${onBack ? 'select-none' : ''} ${highlightedId === message.id ? 'ring-2 ring-green-600 ring-offset-2' : ''}`}
+                  onPointerDown={event => {
+                    if (!onBack || message.deleted || !event.isPrimary || event.button !== 0 ||
+                        (event.target as Element).closest('button, a, audio')) return;
+                    cancelPress();
+                    press.current = { x: event.clientX, y: event.clientY, timer: window.setTimeout(() => {
+                      press.current = null;
+                      suppressClickUntil.current = Date.now() + 700;
+                      setActionId(message.id);
+                    }, 450) };
+                  }}
+                  onPointerMove={event => {
+                    const start = press.current;
+                    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) cancelPress();
+                  }}
+                  onPointerUp={cancelPress} onPointerCancel={cancelPress} onPointerLeave={cancelPress}
+                  onContextMenu={event => {
+                    if (!onBack || message.deleted || (event.target as Element).closest('button, a, audio')) return;
+                    event.preventDefault();
+                    cancelPress();
+                    setActionId(message.id);
+                  }}
+                  onClickCapture={event => {
+                    if (Date.now() < suppressClickUntil.current) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }
+                  }}>
+                  {!message.deleted && message.replyToId && <button type="button" onClick={() => {
+                    jumpCursor.current = undefined;
+                    setJumpToId(message.replyToId ?? undefined);
+                  }} className="mb-2 flex w-full min-w-0 items-center gap-2 rounded-lg border-l-2 border-green-600 bg-white/75 px-2 py-1.5 text-left text-xs text-slate-700 active:bg-green-50">
+                    <Reply size={14} className="shrink-0 text-green-700" />
+                    <span className="truncate">{quote(message.replyToId)}</span>
+                  </button>}
                   {message.deleted ? <p className="text-sm italic text-slate-600">{labels.deleted}</p> :
                     message.kind === 'TEXT' ? <p className="whitespace-pre-wrap break-words">{message.text}</p> :
                     <Media message={message} request={request} language={language} />}
-                  {!message.deleted && (message.userReaction || message.adminReaction) &&
-                    <p className="mt-1 text-sm">{[message.userReaction, message.adminReaction].filter(Boolean).join(' ')}</p>}
+                  {!message.deleted && reactions.length > 0 &&
+                    <div className="mt-2 flex flex-wrap gap-1.5" aria-label={labels.react}>
+                      {[...new Set(reactions)].map(emoji => <span key={emoji}
+                        className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-sm leading-none ${emoji === myReaction
+                          ? 'border-green-300 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700'}`}>
+                        {emoji}{reactions.length === 2 && reactions[0] === reactions[1] && <span className="text-xs font-medium">2</span>}
+                      </span>)}
+                    </div>}
                   <p className="mt-1 text-right text-xs text-slate-600">
                     {new Date(message.createdAt).toLocaleTimeString(language === 'ru' ? 'ru-RU' : 'uz-UZ', { hour: '2-digit', minute: '2-digit' })}
                     {own && !message.deleted && ` · ${message.readAt ? t.read : t.sent}`}
                   </p>
-                  {!message.deleted && <div className="flex flex-wrap items-center gap-x-3">
+                  {onBack && !message.deleted && <button type="button"
+                    className="sr-only focus:not-sr-only" onClick={() => setActionId(message.id)}>{labels.actions}</button>}
+                  {!onBack && !message.deleted && <div className="flex flex-wrap items-center gap-x-3">
                     <button type="button" disabled={sending} className="min-h-8 text-xs text-green-800 disabled:opacity-40"
                       onClick={() => { setReplyToId(message.id); setActionId(undefined); }}>{labels.reply}</button>
                     <button type="button" className="min-h-8 text-xs text-green-800"
@@ -701,7 +789,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
                       {labels.remove}
                     </button>}
                   </div>}
-                  {!message.deleted && actionId === message.id && <div className="flex flex-wrap">
+                  {!onBack && !message.deleted && actionId === message.id && <div className="flex flex-wrap">
                     {REACTIONS.map(emoji => {
                       const selected = (admin ? message.adminReaction : message.userReaction) === emoji;
                       return <button key={emoji} type="button" aria-pressed={selected} disabled={!ready}
@@ -759,5 +847,35 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
         <MessageCircle size={32} /><p>{t.choose}</p>
       </section>}
     </div>
+    {onBack && <Drawer placement="bottom" open={!!actionMessage && !actionMessage.deleted}
+      title={labels.actions} onClose={() => setActionId(undefined)}
+      height="auto" styles={{ body: { paddingBottom: 'max(24px, env(safe-area-inset-bottom))', maxHeight: '65dvh' } }}>
+      {actionMessage && <div className="mx-auto max-w-md space-y-3">
+        <p className="truncate rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700">{quote(actionMessage.id)}</p>
+        <div className="grid grid-cols-6 gap-1 rounded-2xl bg-slate-50 p-2 sm:grid-cols-8" role="group" aria-label={labels.react}>
+          {REACTIONS.map(emoji => {
+            const selected = (admin ? actionMessage.adminReaction : actionMessage.userReaction) === emoji;
+            return <button key={emoji} type="button" aria-pressed={selected} disabled={!ready}
+              className={`min-h-11 rounded-xl text-xl disabled:opacity-40 ${selected ? 'bg-green-100 ring-1 ring-green-600' : 'active:bg-slate-200'}`}
+              onClick={() => {
+                frame('REACT', { messageId: actionMessage.id, emoji: selected ? null : emoji });
+                setActionId(undefined);
+              }}>{emoji}</button>;
+          })}
+        </div>
+        <button type="button" disabled={sending} className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-green-50 px-3 text-green-800"
+          onClick={() => { setReplyToId(actionMessage.id); setActionId(undefined); }}>
+          <Reply size={19} />{labels.reply}
+        </button>
+        {actionMessage.senderId === actorId && <button type="button" disabled={!ready || sending}
+          className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-red-50 px-3 text-red-700 disabled:opacity-40"
+          onClick={() => {
+            if (window.confirm(labels.confirm)) {
+              frame('DELETE_MESSAGE', { messageId: actionMessage.id });
+              setActionId(undefined);
+            }
+          }}><Trash2 size={19} />{labels.remove}</button>}
+      </div>}
+    </Drawer>}
   </main>;
 }

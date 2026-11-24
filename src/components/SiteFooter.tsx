@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { ANDROID_APK_URL } from '../constants';
 import { translations } from '../i18n/translations';
 import type { Language } from '../types/auth';
 import { SiteLogo } from './SiteLogo';
@@ -43,6 +45,10 @@ export function SiteFooter({ language, homePath = '/' }: SiteFooterProps) {
             {t.catalog.navAbout}
           </Link>
         </nav>
+        {ANDROID_APK_URL && !Capacitor.isNativePlatform() && <a href={ANDROID_APK_URL} download
+          className="rounded px-1 py-0.5 text-sm font-medium text-green-700 hover:text-green-900">
+          {language === 'ru' ? 'Скачать приложение' : 'Ilovani yuklab olish'}
+        </a>}
 
         <div className="text-xs text-slate-500 tabular-nums">
           © {currentYear} {t.brandName}

@@ -474,7 +474,7 @@ export function CatalogProductDetailPage({
                   selectedImageId={activeImage?.id ?? null}
                   onSelectImageId={setSelectedImageId}
                   aspectClassName="aspect-[4/3]"
-                  containerClassName="rounded-lg border border-[#e6e4dd] bg-[#faf9f5]"
+                  containerClassName="rounded-lg border border-[#e6e4dd] bg-white"
                   imgClassName="w-full h-full object-contain p-2 sm:p-3"
                   arrowsVisibility="always"
                 />
@@ -488,7 +488,7 @@ export function CatalogProductDetailPage({
                           key={img.id}
                           type="button"
                           onClick={() => setSelectedImageId(img.id)}
-                          className={`w-14 h-14 sm:w-16 sm:h-16 rounded-lg border overflow-hidden shrink-0 bg-[#faf9f5] transition-colors cursor-pointer ${
+                          className={`w-14 h-14 sm:w-16 sm:h-16 rounded-lg border overflow-hidden shrink-0 bg-white transition-colors cursor-pointer ${
                             isSelected
                               ? 'border-[#16a34a] ring-2 ring-[#bbf7d0]'
                               : 'border-[#e6e4dd] hover:border-[#86efac]'

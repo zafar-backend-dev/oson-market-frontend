@@ -6,6 +6,11 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    define: {
+      __BUNDLED_ANDROID_APK__: JSON.stringify(
+        fs.existsSync(path.resolve(__dirname, 'public/downloads/oson-market.apk')),
+      ),
+    },
     plugins: [
       react(),
       tailwindcss(),

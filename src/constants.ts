@@ -6,3 +6,7 @@ export const API_BASE_URL =
   BACKEND_API_URL;
 
 export const PUBLIC_SITE_ORIGIN = 'https://oson-market-frontend.vercel.app';
+
+declare const __BUNDLED_ANDROID_APK__: boolean;
+export const ANDROID_APK_URL = import.meta.env.VITE_ANDROID_APK_URL?.trim() ||
+  (__BUNDLED_ANDROID_APK__ ? '/downloads/oson-market.apk' : '');

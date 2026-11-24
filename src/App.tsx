@@ -2,6 +2,7 @@ import { watchOrderAlertTaps } from './services/orderAlerts';
 import { Capacitor } from '@capacitor/core';
 import { StoreHeader } from './components/StoreHeader';
 import { SupportChat } from './components/SupportChat';
+import { AndroidDownloadOffer } from './components/AndroidDownloadOffer';
 import { watchMobileLinks } from './services/mobileGoogle';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, App as AntApp, Button, ConfigProvider, Skeleton, Spin } from 'antd';
@@ -1136,6 +1137,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
       />
 
       <NotificationsDrawer language={language} />
+      <AndroidDownloadOffer guest={!bootstrapping && !session && isPublicCatalogPath(location.pathname)} language={language} />
       </NotificationProvider>
     </ProductSocialCacheProvider>
   );

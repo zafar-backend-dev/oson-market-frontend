@@ -204,7 +204,7 @@ function CatalogProductCard({
       className="group bg-white border border-[#e6e4dd] hover:border-[#86efac] rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:shadow-sm"
     >
       {/* Product Cover Image: aspect-[4/3], object-contain so nothing is cropped */}
-      <div className="bg-[#faf9f5] border-b border-[#f2f0ea]">
+      <div className="bg-white border-b border-[#f2f0ea]">
         <SwipeableProductGallery
           images={galleryImages}
           alt={displayTitle}
