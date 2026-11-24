@@ -1,0 +1,14 @@
+[
+  {
+    "target": {
+      "package_name": "uz.osonmarket24.app",
+      "sha256_cert_fingerprints": [
+        "D1:F7:D5:A1:83:E7:2F:E9:BF:3D:34:A3:80:DB:70:CE:82:13:10:66:7B:A0:19:17:2D:06:E1:6E:6D:3D:D6:97"
+      ],
+      "namespace": "android_app"
+    },
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ]
+  }
+]

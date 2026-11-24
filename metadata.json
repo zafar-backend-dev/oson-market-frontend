@@ -1,0 +1,6 @@
+{
+  "name": "Oson Market",
+  "description": "Oson Market authentication, password recovery, and account profile client for the Java Spring Boot backend.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
