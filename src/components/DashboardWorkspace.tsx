@@ -1,3 +1,4 @@
+import { AVATAR_MAX_SOURCE_BYTES, prepareAvatarFile } from '../utils/avatarUpload';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   Alert,
@@ -25,7 +26,6 @@ import {
   formatCountdown,
   isProfileComplete,
   isValidUsername,
-  validateAvatarFile,
   validateOptionalPersonName,
   validatePhone,
 } from '../utils/validation';
@@ -299,21 +299,14 @@ export function DashboardWorkspace({
     setAvatarError(null);
     setAvatarBusy(true);
     try {
-      const check = await validateAvatarFile(file);
-      if (!check.valid) {
-        const msg =
-          check.reason === 'invalid_type'
-            ? t.validation.avatarInvalidType
-            : check.reason === 'too_large'
-              ? t.validation.avatarTooLarge
-              : check.reason === 'invalid_dimensions'
-                ? t.validation.avatarInvalidDimensions
-                : t.validation.avatarReadError;
-        setAvatarError(msg);
+      if (file.size > AVATAR_MAX_SOURCE_BYTES) {
+        setAvatarError(language === 'ru'
+          ? '\u0420\u0430\u0437\u043c\u0435\u0440 \u0444\u0430\u0439\u043b\u0430 \u043d\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u043f\u0440\u0435\u0432\u044b\u0448\u0430\u0442\u044c 25 \u041c\u0411.'
+          : 'Rasm hajmi 25 MB dan oshmasligi kerak.');
         return;
       }
-
-      const updated = await authApi.uploadAvatar(session.accessToken, file, language);
+      const prepared = await prepareAvatarFile(file);
+      const updated = await authApi.uploadAvatar(session.accessToken, prepared, language);
       onProfileUpdated(updated);
       setAvatarVersion((v) => v + 1);
       message.success(t.workspace.avatar.uploadedSuccess);
@@ -324,6 +317,8 @@ export function DashboardWorkspace({
           return;
         }
         setAvatarError(error.message);
+      } else {
+        setAvatarError(t.validation.avatarReadError);
       }
     } finally {
       setAvatarBusy(false);
@@ -429,7 +424,7 @@ export function DashboardWorkspace({
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept="image/png,image/jpeg"
+                          accept="image/*,.heic,.heif,.tif,.tiff"
                           onChange={handleAvatarFileSelected}
                           className="hidden"
                         />
@@ -459,7 +454,9 @@ export function DashboardWorkspace({
                         )}
 
                         <span className="text-[11px] text-slate-400">
-                          {t.workspace.avatar.hint}
+                          {language === 'ru'
+                            ? 'JPEG, PNG, WebP, AVIF, HEIC, GIF, BMP, TIFF \u00b7 \u0434\u043e 25 \u041c\u0411'
+                            : 'JPEG, PNG, WebP, AVIF, HEIC, GIF, BMP, TIFF · 25 MB gacha'}
                         </span>
                       </div>
                     </div>

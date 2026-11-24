@@ -430,6 +430,14 @@ export const orderApi = {
     );
   },
 
+  markAllNotificationsRead(accessToken: string, language: Language): Promise<void> {
+    return requestOrderApi<void>('/api/orders/notifications/read-all', {
+      method: 'PATCH',
+      accessToken,
+      language,
+    });
+  },
+
   async listTelegramRecipients(
     accessToken: string,
     language: Language,

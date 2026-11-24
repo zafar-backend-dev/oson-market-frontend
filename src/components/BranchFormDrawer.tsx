@@ -1,3 +1,4 @@
+import { getCurrentLocation, locationErrorMessage, supportsLocation } from '../services/deviceLocation';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Alert, App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Skeleton, Switch } from 'antd';
 import { Crosshair, Image as ImageIcon, Loader2, MapPin, Trash2, Upload } from 'lucide-react';
@@ -416,14 +417,14 @@ export function BranchFormDrawer({
   );
 
   const handleGetBrowserLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    if (!supportsLocation()) {
       setGeoNotice({ type: 'warning', text: t.orders.locationUnsupportedHint });
       return;
     }
 
     setGeoLoading(true);
     setGeoNotice(null);
-    navigator.geolocation.getCurrentPosition(
+    void getCurrentLocation().then(
       (pos) => {
         setGeoLoading(false);
         const next: BranchLocation = {
@@ -433,11 +434,10 @@ export function BranchFormDrawer({
         setGeoNotice({ type: 'success', text: t.orders.locationFoundHint });
         void applyCoordinatesAndGeocode(next);
       },
-      () => {
+      (error: unknown) => {
         setGeoLoading(false);
-        setGeoNotice({ type: 'warning', text: t.orders.locationPermissionDeniedHint });
+        setGeoNotice({ type: 'warning', text: locationErrorMessage(error, language, t.orders.locationPermissionDeniedHint) });
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
   };
 

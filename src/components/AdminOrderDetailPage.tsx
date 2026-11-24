@@ -282,9 +282,6 @@ export function AdminOrderDetailPage({
   useEffect(() => {
     if (!isAdmin || !orderId) return;
     return subscribeOrderLiveUpdate((signal) => {
-      if (signal.type === 'ready' && hasLoadedDetailRef.current) {
-        return;
-      }
       if (signal.type === 'event' && signal.orderId && signal.orderId !== orderId) {
         return;
       }

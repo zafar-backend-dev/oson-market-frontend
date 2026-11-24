@@ -1,3 +1,4 @@
+import { PUBLIC_SITE_ORIGIN } from '../constants';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { InputRef } from 'antd';
 import { Alert, App as AntApp, Button, Input, Modal, Result, Skeleton } from 'antd';
@@ -290,7 +291,9 @@ export function CatalogProductDetailPage({
   }, [idOrSlug]);
 
   const handleShareClick = useCallback(async () => {
-    const currentUrl = window.location.href;
+    if (!product) return;
+    const productPath = `/products/${encodeURIComponent(product.slug || product.id)}`;
+    const currentUrl = new URL(productPath, PUBLIC_SITE_ORIGIN).href;
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
       try {
         await navigator.clipboard.writeText(currentUrl);
@@ -309,7 +312,7 @@ export function CatalogProductDetailPage({
       }
     }
     setManualShareUrl(currentUrl);
-  }, [message, tc.shareCopiedSuccess]);
+  }, [message, product, tc.shareCopiedSuccess]);
 
   const handleSelectVariant = (variantId: string) => {
     setSelectedVariantId(variantId);

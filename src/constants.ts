@@ -4,3 +4,5 @@ export const BACKEND_API_URL = 'https://osonmarket-backend.onrender.com';
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ||
   BACKEND_API_URL;
+
+export const PUBLIC_SITE_ORIGIN = 'https://oson-market-frontend.vercel.app';

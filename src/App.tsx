@@ -1,4 +1,8 @@
-import { watchMobileGoogle } from './services/mobileGoogle';
+import { watchOrderAlertTaps } from './services/orderAlerts';
+import { Capacitor } from '@capacitor/core';
+import { StoreHeader } from './components/StoreHeader';
+import { SupportChat } from './components/SupportChat';
+import { watchMobileLinks } from './services/mobileGoogle';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, App as AntApp, Button, ConfigProvider, Skeleton, Spin } from 'antd';
 import enUS from 'antd/locale/en_US';
@@ -41,16 +45,17 @@ import { ProductSocialCacheProvider } from './contexts/ProductSocialCacheContext
 import { SiteLogoProvider } from './contexts/SiteLogoContext';
 import { translations } from './i18n/translations';
 import { authApi, AuthApiError } from './services/authApi';
-import { sessionManager } from './services/sessionManager';
+import { fetchWithSessionRefresh, sessionManager } from './services/sessionManager';
 import type { AuthSession, Language, UserProfile } from './types/auth';
 import { readPendingProductOrder } from './utils/catalog';
 import { isProfileComplete } from './utils/validation';
 
-function MobileGoogleLinks() {
+function MobileLinks() {
   const navigate = useNavigate();
-  useEffect(() => watchMobileGoogle(search => {
-    navigate('/auth/google/callback' + search, { replace: true });
-  }), [navigate]);
+  const navigateRef = useRef(navigate);
+  useEffect(() => { navigateRef.current = navigate; }, [navigate]);
+  useEffect(() => watchMobileLinks(path => navigateRef.current(path, { replace: true })), []);
+  useEffect(() => watchOrderAlertTaps(path => navigateRef.current(path)), []);
   return null;
 }
 
@@ -790,6 +795,13 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               )
             }
           />
+          <Route path="/chat" element={Capacitor.isNativePlatform() && profile.role !== 'ADMIN' ? <>
+            <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)}
+              onLanguageChange={handleLanguageChange} onLogout={handleLogout} />
+            <SupportChat language={language} token={session.accessToken} request={(path, init) =>
+              fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
+                language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
+          </> : <Navigate to="/" replace />} />
           <Route
             path="/orders"
             element={
@@ -1138,7 +1150,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <MobileGoogleLinks />
+      <MobileLinks />
       <ConfigProvider
         locale={language === 'ru' ? ruRU : enUS}
         theme={{

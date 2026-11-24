@@ -1,3 +1,4 @@
+import { getCurrentLocation, locationErrorMessage, supportsLocation } from '../services/deviceLocation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Empty, Skeleton } from 'antd';
 import {
@@ -154,7 +155,7 @@ export function BranchesPage({
   }, [language, userLocation, triggerReverseGeocode]);
 
   const handleGetBrowserLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    if (!supportsLocation()) {
       setGeoNotice({ type: 'warning', text: to.locationUnsupportedHint });
       setMapOpen(true);
       return;
@@ -162,7 +163,7 @@ export function BranchesPage({
 
     setGeoLoading(true);
     setGeoNotice(null);
-    navigator.geolocation.getCurrentPosition(
+    void getCurrentLocation().then(
       (pos) => {
         setGeoLoading(false);
         const next: BranchLocation = {
@@ -172,12 +173,11 @@ export function BranchesPage({
         setGeoNotice({ type: 'success', text: to.locationFoundHint });
         applyUserLocation(next);
       },
-      () => {
+      (error: unknown) => {
         setGeoLoading(false);
-        setGeoNotice({ type: 'warning', text: to.locationPermissionDeniedHint });
+        setGeoNotice({ type: 'warning', text: locationErrorMessage(error, language, to.locationPermissionDeniedHint) });
         setMapOpen(true);
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
   };
 

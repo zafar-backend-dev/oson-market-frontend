@@ -2,7 +2,9 @@ import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 
-const MOBILE_CALLBACK = 'https://oson-market-frontend.vercel.app/auth/mobile/google/callback';
+import { PUBLIC_SITE_ORIGIN } from '../constants';
+
+const MOBILE_CALLBACK_PATH = '/auth/mobile/google/callback';
 const KEY = 'oson_market_mobile_google_attempt';
 const TTL = 10 * 60_000;
 
@@ -45,23 +47,42 @@ export async function startGoogleLogin(authorizationUrl: string, language: 'uz' 
   }
 }
 
-export function watchMobileGoogle(onCallback: (search: string) => void): () => void {
+export function watchMobileLinks(navigate: (path: string) => void): () => void {
   if (!Capacitor.isNativePlatform()) return () => {};
   let active = true;
-  let handled = '';
+  let handledGoogleSearch = '';
+
   const receive = (raw: string) => {
-    if (!active || !getMobileGoogleVerifier()) return;
-    const url = new URL(raw);
-    if (url.origin + url.pathname !== MOBILE_CALLBACK || url.username || url.password
-      || !url.search || handled === url.search) return;
-    handled = url.search;
+    if (!active) return;
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      return;
+    }
+    if (url.origin !== PUBLIC_SITE_ORIGIN || url.username || url.password) return;
+
+    if (/^\/products\/[^/]+\/?$/.test(url.pathname) || url.pathname === '/') {
+      navigate(url.pathname + url.search + url.hash);
+      return;
+    }
+
+    if (url.pathname !== MOBILE_CALLBACK_PATH || !url.search
+      || handledGoogleSearch === url.search || !getMobileGoogleVerifier()) return;
+    handledGoogleSearch = url.search;
     void Browser.close().catch(() => {});
-    onCallback(url.search);
+    navigate('/auth/google/callback' + url.search);
   };
-  const listener = App.addListener('appUrlOpen', ({ url }) => receive(url));
+
+  let receivedWhileStarting = false;
+  const listener = App.addListener('appUrlOpen', ({ url }) => {
+    receivedWhileStarting = true;
+    receive(url);
+  });
   void listener.then(() => App.getLaunchUrl()).then(value => {
-    if (value?.url) receive(value.url);
+    if (!receivedWhileStarting && value?.url) receive(value.url);
   }).catch(() => {});
+
   return () => {
     active = false;
     void listener.then(handle => handle.remove()).catch(() => {});

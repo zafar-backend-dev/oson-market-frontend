@@ -1,3 +1,8 @@
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { showOrderAlert } from '../services/orderAlerts';
+import { startOrderPush } from '../services/orderPush';
+import { getOrderStatusLabel } from '../utils/orderStatus';
 import {
   createContext,
   useCallback,
@@ -45,6 +50,7 @@ interface NotificationContextValue {
   closeDrawer: () => void;
   refreshUnreadCount: () => Promise<void>;
   loadNotifications: (page?: number, append?: boolean) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
   markNotificationAsRead: (notification: OrderNotificationItem) => Promise<void>;
   subscribeOrderLiveUpdate: (listener: OrderLiveUpdateListener) => () => void;
 }
@@ -92,6 +98,12 @@ export function NotificationProvider({
   drawerOpenRef.current = drawerOpen;
 
   const hasToken = Boolean(accessToken);
+  const languageRef = useRef(language);
+  languageRef.current = language;
+  useEffect(() => {
+    if (!isAuthenticated || !hasToken) return;
+    return startOrderPush(language, () => sessionManager.getCurrentAccessToken());
+  }, [isAuthenticated, hasToken, language]);
   const activeAuthRef = useRef<{ token: string | null; authed: boolean }>({
     token: accessToken,
     authed: isAuthenticated,
@@ -350,6 +362,11 @@ export function NotificationProvider({
           return;
         }
 
+        if (parsed.type === 'ORDER_CHANGED') {
+          emitLiveUpdate({ type: 'event', orderId: typeof parsed.orderId === 'string' ? parsed.orderId : undefined });
+          return;
+        }
+
         if (parsed.type === 'ORDER_STATUS_CHANGED') {
           const notificationId =
             typeof parsed.notificationId === 'string' ? parsed.notificationId : undefined;
@@ -358,6 +375,10 @@ export function NotificationProvider({
               return;
             }
             seenNotificationIdsRef.current.add(notificationId);
+            if (typeof parsed.status === 'string' && typeof parsed.orderId === 'string') {
+              const lang = languageRef.current;
+              void showOrderAlert(parsed.orderId, getOrderStatusLabel(parsed.status, lang), lang, notificationId).catch(() => {});
+            }
             if (seenNotificationIdsRef.current.size > 500) {
               const oldest = seenNotificationIdsRef.current.values().next().value;
               if (oldest) seenNotificationIdsRef.current.delete(oldest);
@@ -416,8 +437,8 @@ export function NotificationProvider({
 
     connectSocket();
 
-    const handleTabReturn = () => {
-      if (disposed || document.visibilityState !== 'visible') return;
+    const handleTabReturn = (nativeResume: boolean) => {
+      if (disposed || (!nativeResume && document.visibilityState !== 'visible')) return;
       void refreshUnreadCountRef.current();
       if (drawerOpenRef.current || hasLoadedListRef.current) {
         void loadNotificationsRef.current(0, false);
@@ -438,13 +459,18 @@ export function NotificationProvider({
       }
     };
 
-    window.addEventListener('focus', handleTabReturn);
-    document.addEventListener('visibilitychange', handleTabReturn);
+    const nativeResume = Capacitor.isNativePlatform()
+      ? CapacitorApp.addListener('resume', () => handleTabReturn(true))
+      : null;
+    const handleBrowserReturn = () => handleTabReturn(false);
+    window.addEventListener('focus', handleBrowserReturn);
+    document.addEventListener('visibilitychange', handleBrowserReturn);
 
     return () => {
       disposed = true;
-      window.removeEventListener('focus', handleTabReturn);
-      document.removeEventListener('visibilitychange', handleTabReturn);
+      if (nativeResume) void nativeResume.then(handle => handle.remove()).catch(() => {});
+      window.removeEventListener('focus', handleBrowserReturn);
+      document.removeEventListener('visibilitychange', handleBrowserReturn);
       closeActiveSocket();
     };
   }, [isAuthenticated, hasToken, clearSocketTimers, closeActiveSocket, emitLiveUpdate]);
@@ -508,6 +534,24 @@ export function NotificationProvider({
     [language, loadNotifications, onUnauthorized, refreshUnreadCount],
   );
 
+  const markAllNotificationsAsRead = useCallback(async () => {
+    const token = sessionManager.getCurrentAccessToken() ?? activeAuthRef.current.token;
+    if (!activeAuthRef.current.authed || !token) return;
+    const epoch = sessionManager.getAuthEpoch();
+    try {
+      await orderApi.markAllNotificationsRead(token, language);
+      if (!activeAuthRef.current.authed || sessionManager.getAuthEpoch() !== epoch) return;
+      await Promise.all([refreshUnreadCount(), loadNotifications(0, false)]);
+    } catch (error) {
+      if (!activeAuthRef.current.authed || sessionManager.getAuthEpoch() !== epoch) return;
+      if (error instanceof AuthApiError && error.status === 401) {
+        onUnauthorized(error.message);
+      } else {
+        throw error;
+      }
+    }
+  }, [language, loadNotifications, onUnauthorized, refreshUnreadCount]);
+
   const value = useMemo<NotificationContextValue>(
     () => ({
       unreadCount,
@@ -523,6 +567,7 @@ export function NotificationProvider({
       refreshUnreadCount,
       loadNotifications,
       markNotificationAsRead,
+      markAllNotificationsAsRead,
       subscribeOrderLiveUpdate,
     }),
     [
@@ -539,6 +584,7 @@ export function NotificationProvider({
       refreshUnreadCount,
       loadNotifications,
       markNotificationAsRead,
+      markAllNotificationsAsRead,
       subscribeOrderLiveUpdate,
     ],
   );

@@ -1,3 +1,4 @@
+import { getCurrentLocation, locationErrorMessage, supportsLocation } from '../services/deviceLocation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -513,7 +514,7 @@ export function CartDrawer({
   const handleGetBrowserLocation = () => {
     setLocationValidationError(null);
     setSubmitError(null);
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    if (!supportsLocation()) {
       setGeoNotice({ type: 'warning', text: to.locationUnsupportedHint });
       if (fulfillmentMethod === 'DELIVERY' && !deliveryLocation) {
         applyDeliveryPoint(DEFAULT_MAP_LOCATION);
@@ -523,7 +524,7 @@ export function CartDrawer({
 
     setGeoLoading(true);
     setGeoNotice(null);
-    navigator.geolocation.getCurrentPosition(
+    void getCurrentLocation().then(
       (pos) => {
         setGeoLoading(false);
         const next: BranchLocation = {
@@ -537,9 +538,9 @@ export function CartDrawer({
         }
         setGeoNotice({ type: 'success', text: to.locationFoundHint });
       },
-      () => {
+      (error: unknown) => {
         setGeoLoading(false);
-        setGeoNotice({ type: 'warning', text: to.locationPermissionDeniedHint });
+        setGeoNotice({ type: 'warning', text: locationErrorMessage(error, language, to.locationPermissionDeniedHint) });
         if (fulfillmentMethod === 'DELIVERY' && !deliveryLocation) {
           if (
             selectedBranch &&
@@ -555,7 +556,6 @@ export function CartDrawer({
           }
         }
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
   };
 

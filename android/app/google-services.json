@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "500311082547",
+    "project_id": "oson-market-b971b",
+    "storage_bucket": "oson-market-b971b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:500311082547:android:b7630e7333f0dc60990546",
+        "android_client_info": {
+          "package_name": "uz.osonmarket24.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4yXaCQw6v0FHzecoFKGvjCkziFj_LFx0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

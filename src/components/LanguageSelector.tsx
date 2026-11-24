@@ -1,5 +1,5 @@
 import { Select } from 'antd';
-import { ChevronDown, Globe } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import type { Language } from '../types/auth';
 
 interface LanguageSelectorProps {
@@ -20,6 +20,9 @@ function UzFlag() {
       <rect y="5.5" width="24" height="0.8" fill="#CE1126" />
       <rect y="11.7" width="24" height="0.8" fill="#CE1126" />
       <rect y="12" width="24" height="6" fill="#1EB53A" />
+      <path fill="#fff" d="M5.8 1a2.2 2.2 0 1 0 0 4.4 2.5 2.5 0 0 1 0-4.4Z" />
+      <path stroke="#fff" strokeWidth=".55" strokeLinecap="round"
+        d="M9 1.5h.1m1.5 0h.1m1.5 0h.1M8 3h.1m1.5 0h.1m1.5 0h.1m1.5 0h.1M7 4.5h.1m1.5 0h.1m1.5 0h.1m1.5 0h.1m1.5 0h.1" />
     </svg>
   );
 }
@@ -49,30 +52,15 @@ const LANGUAGE_OPTIONS: {
 ];
 
 export function LanguageSelector({ value, onChange, ariaLabel }: LanguageSelectorProps) {
-  const activeOption =
-    LANGUAGE_OPTIONS.find((item) => item.value === value) ?? LANGUAGE_OPTIONS[0];
-
   return (
-    <>
-      {/* Compact toggle button on narrow mobile viewports (320px–639px) */}
-      <button
-        type="button"
-        onClick={() => onChange(value === 'uz' ? 'ru' : 'uz')}
-        aria-label={ariaLabel || 'Language'}
-        className="sm:hidden inline-flex items-center justify-center min-w-[40px] h-10 px-2 rounded-lg border border-[#e6e4dd] bg-white text-xs font-semibold text-slate-800 hover:border-[#86efac] transition-colors cursor-pointer shrink-0"
-      >
-        {activeOption.code}
-      </button>
-
-      {/* Full selector on tablet & desktop (>= 640px) */}
-      <div className="hidden sm:block">
+    <div className="shrink-0">
         <Select<Language>
           value={value}
           onChange={onChange}
           aria-label={ariaLabel || 'Language'}
           suffix={<ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
           popupMatchSelectWidth={false}
-          className="oson-lang-select min-w-[132px]"
+          className="oson-lang-select w-[52px] sm:w-[142px]"
           styles={{
             popup: {
               root: {
@@ -87,8 +75,8 @@ export function LanguageSelector({ value, onChange, ariaLabel }: LanguageSelecto
             if (!opt) return null;
             return (
               <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-800 whitespace-nowrap">
-                <Globe className="w-3.5 h-3.5 text-[#1677ff] shrink-0" />
-                <span>{opt.label}</span>
+                {opt.flag === 'uz' ? <UzFlag /> : <RuFlag />}
+                <span className="sr-only sm:not-sr-only">{opt.label}</span>
               </span>
             );
           }}
@@ -98,7 +86,7 @@ export function LanguageSelector({ value, onChange, ariaLabel }: LanguageSelecto
               <div className="flex items-center justify-between gap-4 py-0.5">
                 <span className="inline-flex items-center gap-2.5 text-sm font-medium text-slate-800">
                   {opt.flag === 'uz' ? <UzFlag /> : <RuFlag />}
-                  <span>{opt.label}</span>
+                  <span >{opt.label}</span>
                 </span>
                 <span className="font-mono-tabular text-[11px] font-medium text-slate-400">
                   {opt.code}
@@ -108,6 +96,5 @@ export function LanguageSelector({ value, onChange, ariaLabel }: LanguageSelecto
           }))}
         />
       </div>
-    </>
   );
 }

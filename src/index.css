@@ -117,3 +117,19 @@
     transition-duration: 0.01ms !important;
   }
 }
+.android-pull-to-refresh {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: 50%;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #dcfce7;
+  border-radius: 50%;
+  background: white;
+  color: #15803d;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 12%);
+  pointer-events: none;
+}

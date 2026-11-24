@@ -1,5 +1,6 @@
-import { Alert, Button, Drawer, Empty, Skeleton } from 'antd';
-import { Bell, ChevronRight, RefreshCw, Star } from 'lucide-react';
+import { useState } from 'react';
+import { Alert, App, Button, Drawer, Empty, Skeleton } from 'antd';
+import { Bell, CheckCheck, ChevronRight, RefreshCw, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../contexts/NotificationContext';
 import { translations } from '../i18n/translations';
@@ -17,6 +18,8 @@ interface NotificationsDrawerProps {
 
 export function NotificationsDrawer({ language }: NotificationsDrawerProps) {
   const navigate = useNavigate();
+  const { message } = App.useApp();
+  const [markingAll, setMarkingAll] = useState(false);
   const t = translations[language];
   const tn = t.notificationsPanel;
 
@@ -32,7 +35,21 @@ export function NotificationsDrawer({ language }: NotificationsDrawerProps) {
     refreshUnreadCount,
     loadNotifications,
     markNotificationAsRead,
+    markAllNotificationsAsRead,
   } = useNotifications();
+
+  const handleMarkAllRead = async () => {
+    setMarkingAll(true);
+    try {
+      await markAllNotificationsAsRead();
+    } catch {
+      void message.error(language === 'ru'
+        ? '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0442\u043c\u0435\u0442\u0438\u0442\u044c \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f.'
+        : "Bildirishnomalarni belgilab bo'lmadi. Qayta urinib ko'ring.");
+    } finally {
+      setMarkingAll(false);
+    }
+  };
 
   const hasMore = Boolean(pageMeta && pageMeta.number + 1 < pageMeta.totalPages);
 
@@ -101,6 +118,18 @@ export function NotificationsDrawer({ language }: NotificationsDrawerProps) {
       }}
     >
       <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+        {unreadCount > 0 && (
+          <Button
+            block
+            icon={<CheckCheck className="size-4" aria-hidden="true" />}
+            loading={markingAll}
+            onClick={() => void handleMarkAllRead()}
+          >
+            {language === 'ru'
+              ? '\u041e\u0442\u043c\u0435\u0442\u0438\u0442\u044c \u0432\u0441\u0435 \u043a\u0430\u043a \u043f\u0440\u043e\u0447\u0438\u0442\u0430\u043d\u043d\u044b\u0435'
+              : "Barchasini o'qilgan deb belgilash"}
+          </Button>
+        )}
         {errorMessage && (
           <Alert
             type="error"

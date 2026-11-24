@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { Button, Drawer } from 'antd';
+import { Capacitor } from '@capacitor/core';
 import {
   BarChart3,
   Bell,
@@ -13,6 +14,7 @@ import {
   MapPin,
   Megaphone,
   Menu,
+  MessageCircle,
   Package,
   ShieldCheck,
   ShoppingCart,
@@ -459,6 +461,13 @@ export function StoreHeader({
             icon: <ClipboardList className="w-4 h-4 shrink-0" />,
             active: isCustomerOrdersRoute,
           },
+          ...(!isAdmin && Capacitor.isNativePlatform() ? [{
+            key: 'support-chat',
+            path: '/chat',
+            label: language === 'ru' ? 'Чат с администратором' : 'Admin bilan chat',
+            icon: <MessageCircle className="w-4 h-4 shrink-0" />,
+            active: cleanPath === '/chat',
+          }] : []),
           ...(isAdmin
             ? []
             : [

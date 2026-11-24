@@ -1,3 +1,5 @@
+import { unregisterOrderPush } from './orderPush';
+import { fetchSessionRequest } from './sessionTransport';
 import { API_BASE_URL } from '../constants';
 import type { ApiErrorBody, AuthSession, Language, TokenResponse } from '../types/auth';
 import { AuthApiError, getDefaultHttpErrorMessage } from './apiError';
@@ -281,6 +283,7 @@ export const sessionManager = {
   },
 
   async logout(language: Language = currentLanguage): Promise<void> {
+    const pushLogout = unregisterOrderPush(currentSession?.accessToken ?? null).catch(() => {});
     // Bump epoch and clear local state/timers synchronously so any in-flight refresh
     // initiated prior to logout cannot restore the session upon resolving later.
     authEpoch += 1;
@@ -291,7 +294,7 @@ export const sessionManager = {
     notifySessionListeners(null);
 
     try {
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      await fetchSessionRequest(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -303,6 +306,7 @@ export const sessionManager = {
     } catch {
       // Local auth state and timers are already cleared even if offline
     }
+    await pushLogout;
   },
 
   refreshSession(
@@ -321,7 +325,7 @@ export const sessionManager = {
       let response: Response;
       try {
         // Refresh endpoint relies strictly on HttpOnly oson_refresh cookie; never send Authorization
-        response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        response = await fetchSessionRequest(`${API_BASE_URL}/api/auth/refresh`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -520,7 +524,10 @@ export async function fetchWithSessionRefresh(
     }
 
     try {
-      return await fetch(resolvedUrl, {
+      const transport = /^\/api\/auth\/(?:sign-in\/verify|sign-up\/verify|google\/mobile\/exchange)$/.test(pathOrUrl)
+        ? fetchSessionRequest
+        : fetch;
+      return await transport(resolvedUrl, {
         method: options.method,
         headers,
         credentials: options.credentials,
