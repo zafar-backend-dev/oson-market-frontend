@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { Button, Drawer } from 'antd';
 import { Capacitor } from '@capacitor/core';
+import { ANDROID_APK_URL } from '../constants';
 import {
   BarChart3,
   Bell,
   ChevronDown,
   ClipboardList,
+  Download,
   FileText,
   FolderTree,
   Image as ImageIcon,
@@ -497,6 +499,16 @@ export function StoreHeader({
           },
         ];
 
+  if (ANDROID_APK_URL && !Capacitor.isNativePlatform()) {
+    primaryNavItems.splice(1, 0, {
+      key: 'android-download',
+      path: ANDROID_APK_URL,
+      label: language === 'ru' ? 'Скачать приложение' : 'Ilovani yuklab olish',
+      icon: <Download className="w-4 h-4 shrink-0" />,
+      active: false,
+    });
+  }
+
   const adminNavItems: NavItemConfig[] = isAdmin
     ? [
         {
@@ -590,6 +602,10 @@ export function StoreHeader({
 
   const handleNavigate = (path: string) => {
     setMobileMenuOpen(false);
+    if (ANDROID_APK_URL && path === ANDROID_APK_URL) {
+      window.location.assign(ANDROID_APK_URL);
+      return;
+    }
     navigate(path);
   };
 
