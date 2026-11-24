@@ -506,6 +506,13 @@ export function StoreHeader({
           icon: <BarChart3 className="w-4 h-4 shrink-0" />,
           active: cleanPath === '/admin/statistics',
         },
+        ...(!Capacitor.isNativePlatform() ? [{
+          key: 'admin-chat',
+          path: '/admin/chat',
+          label: language === 'ru' ? 'Сообщения' : 'Xabarlar',
+          icon: <MessageCircle className="w-4 h-4 shrink-0" />,
+          active: cleanPath === '/admin/chat',
+        }] : []),
         {
           key: 'admin-categories',
           path: '/admin/categories',

@@ -802,6 +802,13 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
                 language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
           </> : <Navigate to="/" replace />} />
+          <Route path="/admin/chat" element={!Capacitor.isNativePlatform() && profile.role === 'ADMIN' ? <>
+            <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)}
+              onLanguageChange={handleLanguageChange} onLogout={handleLogout} />
+            <SupportChat admin language={language} token={session.accessToken} request={(path, init) =>
+              fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
+                language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
+          </> : <Navigate to="/" replace />} />
           <Route
             path="/orders"
             element={

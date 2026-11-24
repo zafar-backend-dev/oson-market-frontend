@@ -18,6 +18,42 @@ type Customer = { id: string; role: string; username: string; email: string };
 type Attachment = { kind: 'IMAGE' | 'VOICE'; file: File; requestId: string };
 type Activity = { activity: string; expiresAt: string };
 
+const IMAGE_LIMIT = 20 * 1024 * 1024;
+
+async function resizeChatImage(file: File): Promise<File | null> {
+  let url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = url;
+    try {
+      await image.decode();
+    } catch {
+      const { heicTo, isHeic } = await import('heic-to');
+      if (!await isHeic(file)) return null;
+      const converted = await heicTo({ blob: file, type: 'image/png' });
+      URL.revokeObjectURL(url);
+      url = URL.createObjectURL(converted);
+      image.src = url;
+      await image.decode();
+    }
+    const ratio = Math.min(1, 2560 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.9));
+    if (!blob || blob.size > IMAGE_LIMIT) return null;
+    const extension = blob.type === 'image/webp' ? 'webp' : 'png';
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.${extension}`, { type: blob.type });
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 const copy = {
   uz: {
     title: 'Xabarlar', support: 'Admin bilan chat', online: 'Ulandi', offline: 'Ulanmoqda…',
@@ -106,6 +142,7 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [requestingMic, setRequestingMic] = useState(false);
   const [peerActivities, setPeerActivities] = useState<Record<string, Activity>>({});
   const socket = useRef<WebSocket | null>(null);
@@ -249,6 +286,14 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
     }, 500);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!recording) return;
+    const started = performance.now();
+    setRecordingSeconds(0);
+    const timer = window.setInterval(() => setRecordingSeconds(Math.floor((performance.now() - started) / 1000)), 250);
+    return () => window.clearInterval(timer);
+  }, [recording]);
 
   useEffect(() => {
     if (!recording || !ready) return;
@@ -400,15 +445,30 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
     const attempt = generation.current;
     setSending(true);
     const body = new FormData();
-    body.set('file', attachment.file);
     body.set('kind', attachment.kind);
     body.set('requestId', attachment.requestId);
     if (userId) body.set('userId', userId);
     try {
-      const response = await request('/api/mobile/chat/attachments', { method: 'POST', body });
+      const image = attachment.kind === 'IMAGE';
+      const original = attachment.file;
+      const resizeFirst = image && (original.size > IMAGE_LIMIT || /\.svgz?$/i.test(original.name)
+        || original.type === 'image/svg+xml');
+      const file = resizeFirst ? await resizeChatImage(original) : original;
+      if (attempt !== generation.current) return;
+      if (!file) return setError(original.size > IMAGE_LIMIT ? t.size : t.unsupported);
+      body.set('file', file);
+      let response = await request('/api/mobile/chat/attachments', { method: 'POST', body });
+      if (image && !resizeFirst && (response.status === 415 || response.status === 413 || response.status >= 500)) {
+        const resized = await resizeChatImage(original);
+        if (attempt !== generation.current) return;
+        if (resized) {
+          body.set('file', resized);
+          response = await request('/api/mobile/chat/attachments', { method: 'POST', body });
+        }
+      }
       if (attempt !== generation.current) return;
       if (!response.ok) {
-        setError(response.status === 415 ? t.unsupported : response.status === 413 ? t.size : t.failed);
+        setError(response.status === 415 ? t.unsupported : response.status === 413 ? t.size : `${t.failed} (HTTP ${response.status})`);
         return;
       }
       const message = await response.json() as Message;
@@ -489,17 +549,20 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
         </div>
         <form onSubmit={send} className="space-y-2 border-t border-slate-200 p-3">
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-          {recording && <p role="status" className="text-sm text-red-700">{t.recording}</p>}
+          {recording && <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
+            <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-red-600 motion-reduce:animate-none" />
+            <span className="flex-1" role="status">{t.recording}</span>
+            <time className="tabular-nums">{String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')}</time>
+          </div>}
           {attachment && <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-1">
             <span className="min-w-0 flex-1 truncate">{attachment.file.name}</span>
             <button type="button" className={iconButton} disabled={sending} onClick={() => setAttachment(null)} aria-label={t.cancel}><X size={18} /></button>
           </div>}
           <div className="flex items-end gap-1.5 sm:gap-2">
-            <input type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.psd" ref={input} hidden onChange={event => {
+            <input type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.svg,.psd,.jxl,.jp2,.dng,.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf" ref={input} hidden onChange={event => {
               const file = event.target.files?.[0];
               event.target.value = '';
               if (!file) return;
-              if (file.size > 20 * 1024 * 1024) return setError(t.size);
               setError('');
               setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
             }} />
