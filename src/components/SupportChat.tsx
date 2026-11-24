@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { ImagePlus, MessageCircle, Mic, Send, Square, X } from 'lucide-react';
 import { API_BASE_URL } from '../constants';
 import type { Language } from '../types/auth';
 
 type Props = {
   admin?: boolean;
+  onBack?: () => void;
+  actorId: string;
   token: string;
   language: Language;
   request: (path: string, init?: RequestInit) => Promise<Response>;
@@ -12,13 +15,28 @@ type Props = {
 type Message = {
   id: number; userId: string; senderAdmin: boolean; kind: 'TEXT' | 'IMAGE' | 'VOICE';
   text: string | null; fileName: string | null; createdAt: string; readAt: string | null;
+  senderId: string; replyToId?: number | null; deleted?: boolean;
+  userReaction?: string | null; adminReaction?: string | null; revision?: number;
 };
+const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 type Conversation = { userId: string; username: string | null; unread: number; lastMessageId: number };
 type Customer = { id: string; role: string; username: string; email: string };
 type Attachment = { kind: 'IMAGE' | 'VOICE'; file: File; requestId: string };
 type Activity = { activity: string; expiresAt: string };
 
 const IMAGE_LIMIT = 20 * 1024 * 1024;
+const ChatFileSaver = registerPlugin<{
+  save(options: { name: string; mimeType: string; data: string }): Promise<{ saved: boolean }>;
+}>('ChatFileSaver');
+
+function readBase64(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 async function resizeChatImage(file: File): Promise<File | null> {
   let url = URL.createObjectURL(file);
@@ -79,52 +97,146 @@ const copy = {
   },
 };
 
+function ChatImage({ file, name, className }: { file: Blob; name: string; className: string }) {
+  const [url, setUrl] = useState('');
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const original = URL.createObjectURL(file);
+    setUrl(original);
+    setFailed(false);
+    return () => URL.revokeObjectURL(original);
+  }, [file]);
+
+  useEffect(() => {
+    if (!failed) return;
+    let active = true;
+    let converted = '';
+    void (async () => {
+      try {
+        const { heicTo, isHeic } = await import('heic-to');
+        if (!active || !await isHeic(new File([file], name, { type: file.type }))) return;
+        const image = await heicTo({ blob: file, type: 'image/png' });
+        if (active) {
+          converted = URL.createObjectURL(image);
+          setUrl(converted);
+        }
+      } catch {
+        // The original remains available for download.
+      }
+    })();
+    return () => {
+      active = false;
+      if (converted) URL.revokeObjectURL(converted);
+    };
+  }, [failed, file, name]);
+
+  if (!url) return null;
+  return <img src={url} alt={name} className={className} onError={() => setFailed(true)} />;
+}
+
 function Media({ message, request, language }: Pick<Props, 'request' | 'language'> & { message: Message }) {
   const t = copy[language];
   const [url, setUrl] = useState('');
+  const [file, setFile] = useState<Blob | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [previewFailed, setPreviewFailed] = useState(false);
   const lifetime = useRef<AbortController | null>(null);
   const objectUrl = useRef('');
-  useEffect(() => () => {
-    lifetime.current?.abort();
-    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
-  }, []);
+  const preview = useRef<HTMLDivElement>(null);
+  const currentRequest = useRef(request);
+  useEffect(() => { currentRequest.current = request; }, [request]);
 
   async function open() {
+    if (lifetime.current || objectUrl.current) return;
     const controller = new AbortController();
     lifetime.current = controller;
     setLoading(true);
     setFailed(false);
     try {
-      const response = await request(`/api/mobile/chat/attachments/${message.id}`, { signal: controller.signal });
+      const response = await currentRequest.current(`/api/mobile/chat/attachments/${message.id}`, { signal: controller.signal });
       if (!response.ok) throw new Error();
       const blob = await response.blob();
       if (controller.signal.aborted) return;
       objectUrl.current = URL.createObjectURL(blob);
       setUrl(objectUrl.current);
+      setFile(blob);
     } catch {
       if (!controller.signal.aborted) setFailed(true);
     } finally {
+      if (lifetime.current === controller) lifetime.current = null;
       if (!controller.signal.aborted) setLoading(false);
     }
   }
 
-  if (!url) return <><button type="button" className="underline" onClick={open} disabled={loading}>
-    {loading ? '…' : message.fileName || t.open}
-  </button>{failed && <p role="alert">{t.failed}</p>}</>;
-  return <>
-    {message.kind === 'VOICE'
-      ? <audio controls src={url} className="max-w-full" />
-      : !previewFailed && <img src={url} onError={() => setPreviewFailed(true)} alt={message.fileName ?? ''}
+  async function save() {
+    if (!file || saving) return;
+    setSaving(true);
+    setSaveStatus('');
+    try {
+      const result = await ChatFileSaver.save({
+        name: message.fileName || (message.kind === 'IMAGE' ? 'image' : 'voice'),
+        mimeType: file.type || 'application/octet-stream',
+        data: await readBase64(file),
+      });
+      if (result.saved) setSaveStatus(language === 'ru' ? 'Файл сохранён' : 'Fayl saqlandi');
+    } catch {
+      setSaveStatus(language === 'ru' ? 'Не удалось сохранить файл' : 'Faylni saqlab bo‘lmadi');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    const element = preview.current;
+    let observer: IntersectionObserver | undefined;
+    if (message.kind === 'IMAGE' && element) {
+      observer = new IntersectionObserver(entries => {
+        if (entries.some(entry => entry.isIntersecting)) {
+          observer?.disconnect();
+          void open();
+        }
+      }, { rootMargin: '150px' });
+      observer.observe(element);
+    }
+    return () => {
+      observer?.disconnect();
+      lifetime.current?.abort();
+      lifetime.current = null;
+      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+      objectUrl.current = '';
+    };
+  }, [message.id, message.kind]);
+
+  return <div ref={preview} className={message.kind === 'IMAGE' ? 'min-h-16 min-w-24' : undefined}>
+    {url ? <>
+      {message.kind === 'VOICE' ? <audio controls src={url} className="max-w-full" /> :
+        file && <ChatImage file={file} name={message.fileName ?? ''}
           className="max-h-72 max-w-full rounded-xl object-contain" />}
-    <a href={url} download={message.fileName ?? undefined} className="text-sm underline">{t.download}</a>
-  </>;
+      {Capacitor.getPlatform() === 'android'
+        ? <button type="button" disabled={saving} onClick={() => void save()} className="min-h-9 text-sm underline">
+          {saving ? '…' : t.download}
+        </button>
+        : <a href={url} download={message.fileName ?? undefined} className="text-sm underline">{t.download}</a>}
+      {saveStatus && <p role="status" className="text-xs text-slate-700">{saveStatus}</p>}
+    </> : <>
+      <button type="button" className="underline" onClick={open} disabled={loading}>
+        {loading ? '…' : message.fileName || t.open}
+      </button>
+      {failed && <p role="alert">{t.failed}</p>}
+    </>}
+  </div>;
 }
 
-export function SupportChat({ admin = false, token, language, request }: Props) {
+export function SupportChat({ admin = false, onBack, actorId, token, language, request }: Props) {
   const t = copy[language];
+  const labels = language === 'ru'
+    ? { reply: 'Ответить', react: 'Реакция', remove: 'Удалить', deleted: 'Сообщение удалено',
+        confirm: 'Удалить сообщение для всех?', quote: 'Сообщение', actions: 'Действия с сообщением' }
+    : { reply: 'Javob berish', react: 'Reaksiya', remove: 'O‘chirish', deleted: 'Xabar o‘chirildi',
+        confirm: 'Xabar ikkala tomon uchun o‘chirilsinmi?', quote: 'Xabar', actions: 'Xabar amallari' };
   const [selected, setSelected] = useState<Customer | Conversation | null>(null);
   const userId = selected ? ('userId' in selected ? selected.userId : selected.id) : undefined;
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -138,6 +250,8 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
   const [loaded, setLoaded] = useState(false);
   const [older, setOlder] = useState(false);
   const [draft, setDraft] = useState('');
+  const [replyToId, setReplyToId] = useState<number>();
+  const [actionId, setActionId] = useState<number>();
   const [error, setError] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [sending, setSending] = useState(false);
@@ -146,7 +260,7 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
   const [requestingMic, setRequestingMic] = useState(false);
   const [peerActivities, setPeerActivities] = useState<Record<string, Activity>>({});
   const socket = useRef<WebSocket | null>(null);
-  const pendingText = useRef<{ requestId: string; text: string } | null>(null);
+  const pendingText = useRef<{ requestId: string; text: string; replyToId?: number } | null>(null);
   const typing = useRef<number | undefined>(undefined);
   const recorder = useRef<MediaRecorder | null>(null);
   const generation = useRef(0);
@@ -229,6 +343,15 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
               [...current, message].sort((left, right) => left.id - right.id));
             break;
           }
+          case 'MESSAGE_UPDATED': {
+            const update = event.data as Message;
+            if (admin && update.deleted) frame('CONVERSATIONS');
+            if (admin && update.userId !== userId) break;
+            setMessages(current => current.map(message => message.id === update.id
+              && (update.revision ?? 0) >= (message.revision ?? 0)
+              ? { ...update, readAt: update.readAt ?? message.readAt } : message));
+            break;
+          }
           case 'ACK':
             if (event.requestId === pendingText.current?.requestId) {
               const message = event.data as Message;
@@ -238,6 +361,7 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
               pendingText.current = null;
               setSending(false);
               setDraft('');
+              setReplyToId(undefined);
             }
             break;
           case 'READ':
@@ -307,7 +431,7 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
     scrollOnChange.current = false;
     function markRead() {
       if (!ready || document.visibilityState !== 'visible') return;
-      const latest = messages.slice().reverse().find(message => message.senderAdmin !== admin && !message.readAt);
+      const latest = messages.slice().reverse().find(message => message.senderAdmin !== admin && !message.readAt && !message.deleted);
       if (latest && latest.id > seen.current && frame('MARK_READ', { throughId: latest.id })) seen.current = latest.id;
     }
     markRead();
@@ -336,6 +460,8 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
     setRecording(false);
     setRequestingMic(false);
     setDraft('');
+    setReplyToId(undefined);
+    setActionId(undefined);
     setAttachment(null);
     setError('');
     setSending(false);
@@ -435,7 +561,7 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
     if (!attachment) {
       const text = draft.trim();
       if (!text) return;
-      const command = { requestId: crypto.randomUUID(), text };
+      const command = { requestId: crypto.randomUUID(), text, replyToId };
       if (frame('SEND_TEXT', command)) {
         pendingText.current = command;
         setSending(true);
@@ -448,6 +574,7 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
     body.set('kind', attachment.kind);
     body.set('requestId', attachment.requestId);
     if (userId) body.set('userId', userId);
+    if (replyToId) body.set('replyToId', String(replyToId));
     try {
       const image = attachment.kind === 'IMAGE';
       const original = attachment.file;
@@ -477,6 +604,7 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
       setMessages(current => current.some(item => item.id === message.id) ? current :
         [...current, message].sort((left, right) => left.id - right.id));
       setAttachment(null);
+      setReplyToId(undefined);
       frame('ACTIVITY', { activity: 'IDLE' });
     } catch {
       if (attempt === generation.current) setError(t.failed);
@@ -486,12 +614,23 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
   }
 
   const active = Object.values(peerActivities);
+  const messagesById = new Map(messages.map(message => [message.id, message]));
+  function quote(id: number) {
+    const original = messagesById.get(id);
+    if (!original) return labels.quote + ' #' + id;
+    if (original.deleted) return labels.deleted;
+    return original.text || original.fileName || labels.quote;
+  }
   const peerStatus = active.some(value => value.activity === 'RECORDING_VOICE') ? t.recording :
     active.some(value => value.activity === 'TYPING') ? t.typing : '';
   const iconButton = 'grid size-11 shrink-0 place-items-center rounded-xl border border-slate-200 disabled:opacity-40';
   const actionButton = 'min-h-11 rounded-xl bg-green-700 px-4 text-white disabled:opacity-40';
-  return <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-7">
-    <div className={`grid overflow-hidden rounded-2xl border border-slate-200 bg-white ${admin ? 'md:grid-cols-[18rem_1fr]' : ''}`}>
+  const fullScreen = Boolean(onBack);
+  return <main className={fullScreen
+    ? 'flex h-dvh flex-col overflow-hidden bg-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+    : 'mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-7'}>
+    <div className={fullScreen ? 'flex min-h-0 flex-1 flex-col' :
+      `grid overflow-hidden rounded-2xl border border-slate-200 bg-white ${admin ? 'md:grid-cols-[18rem_1fr]' : ''}`}>
       {admin && <aside className={`${userId ? 'hidden md:block' : ''} border-slate-200 p-4 md:border-r`}>
         <h1 className="mb-3 text-xl font-semibold">{t.title}</h1>
         <form className="mb-4 flex gap-2" onSubmit={event => { event.preventDefault(); void find(search.trim()); }}>
@@ -520,13 +659,16 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
         </div>
         {error && !userId && <p role="alert" className="text-sm text-red-700">{error}</p>}
       </aside>}
-      {(!admin || userId) ? <section className="min-w-0">
-        <header className="border-b border-slate-200 px-4 py-3">
+      {(!admin || userId) ? <section className={fullScreen ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'min-w-0'}>
+        <header className="shrink-0 border-b border-slate-200 px-4 py-3">
+          {onBack && <button type="button" onClick={onBack} className="float-left mr-3 size-11 rounded-xl bg-slate-100"
+            aria-label={language === 'ru' ? 'Назад' : 'Orqaga'}>←</button>}
           {admin && <button className="mb-1 min-h-11 text-green-800 md:hidden" onClick={() => choose(null)}>← {t.back}</button>}
           <h2 className="text-lg font-semibold">{selected?.username || t.support}</h2>
           <p className="min-h-5 text-sm text-slate-600" aria-live="polite">{peerStatus || (ready ? t.online : t.offline)}</p>
         </header>
-        <div className="h-[48dvh] min-h-48 overflow-y-auto bg-slate-50 px-3 py-3 sm:h-[54dvh] sm:px-5">
+        <div className={`overflow-y-auto overscroll-contain bg-slate-50 px-3 py-3 sm:px-5 ${fullScreen
+          ? 'min-h-0 flex-1' : 'h-[48dvh] min-h-48 sm:h-[54dvh]'}`}>
           {older && <button onClick={() => frame('HISTORY', { requestId: 'older', beforeId: messages[0]?.id })}
             disabled={!ready} className="mx-auto mb-3 block min-h-11 rounded-full border border-slate-200 bg-white px-4 text-sm">{t.older}</button>}
           {loaded && messages.length === 0 && <p className="py-8 text-center text-sm text-slate-600">{t.empty}</p>}
@@ -535,26 +677,62 @@ export function SupportChat({ admin = false, token, language, request }: Props) 
               const own = message.senderAdmin === admin;
               return <li key={message.id} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[88%] rounded-2xl px-3 py-2 sm:max-w-[75%] ${own ? 'bg-green-100' : 'border border-slate-200 bg-white'}`}>
-                  {message.kind === 'TEXT' ? <p className="whitespace-pre-wrap break-words">{message.text}</p> :
+                  {!message.deleted && message.replyToId && <p className="mb-1 truncate rounded border-l-2 border-green-600 bg-white/70 px-2 py-1 text-xs text-slate-700">
+                    {quote(message.replyToId)}
+                  </p>}
+                  {message.deleted ? <p className="text-sm italic text-slate-600">{labels.deleted}</p> :
+                    message.kind === 'TEXT' ? <p className="whitespace-pre-wrap break-words">{message.text}</p> :
                     <Media message={message} request={request} language={language} />}
+                  {!message.deleted && (message.userReaction || message.adminReaction) &&
+                    <p className="mt-1 text-sm">{[message.userReaction, message.adminReaction].filter(Boolean).join(' ')}</p>}
                   <p className="mt-1 text-right text-xs text-slate-600">
                     {new Date(message.createdAt).toLocaleTimeString(language === 'ru' ? 'ru-RU' : 'uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-                    {own && ` · ${message.readAt ? t.read : t.sent}`}
+                    {own && !message.deleted && ` · ${message.readAt ? t.read : t.sent}`}
                   </p>
+                  {!message.deleted && <div className="flex flex-wrap items-center gap-x-3">
+                    <button type="button" disabled={sending} className="min-h-8 text-xs text-green-800 disabled:opacity-40"
+                      onClick={() => { setReplyToId(message.id); setActionId(undefined); }}>{labels.reply}</button>
+                    <button type="button" className="min-h-8 text-xs text-green-800"
+                      aria-expanded={actionId === message.id} onClick={() =>
+                        setActionId(current => current === message.id ? undefined : message.id)}>{labels.react}</button>
+                    {message.senderId === actorId && <button type="button" disabled={!ready || sending}
+                      className="min-h-8 text-xs text-red-700 disabled:opacity-40"
+                      onClick={() => { if (window.confirm(labels.confirm)) frame('DELETE_MESSAGE', { messageId: message.id }); }}>
+                      {labels.remove}
+                    </button>}
+                  </div>}
+                  {!message.deleted && actionId === message.id && <div className="flex flex-wrap">
+                    {REACTIONS.map(emoji => {
+                      const selected = (admin ? message.adminReaction : message.userReaction) === emoji;
+                      return <button key={emoji} type="button" aria-pressed={selected} disabled={!ready}
+                        className={`size-10 rounded-lg ${selected ? 'bg-white ring-1 ring-green-600' : ''}`}
+                        onClick={() => {
+                          frame('REACT', { messageId: message.id, emoji: selected ? null : emoji });
+                          setActionId(undefined);
+                        }}>{emoji}</button>;
+                    })}
+                  </div>}
                 </div>
               </li>;
             })}
           </ul>
           <div ref={bottom} />
         </div>
-        <form onSubmit={send} className="space-y-2 border-t border-slate-200 p-3">
+        <form onSubmit={send} className="shrink-0 space-y-2 border-t border-slate-200 p-3">
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {replyToId && <div className="flex items-center gap-2 rounded-lg border-l-2 border-green-600 bg-green-50 px-3 py-1">
+            <p className="min-w-0 flex-1 truncate text-sm">{quote(replyToId)}</p>
+            <button type="button" className={iconButton} disabled={sending} onClick={() => setReplyToId(undefined)}
+              aria-label={t.cancel}><X size={18} /></button>
+          </div>}
           {recording && <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
             <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-red-600 motion-reduce:animate-none" />
             <span className="flex-1" role="status">{t.recording}</span>
             <time className="tabular-nums">{String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')}</time>
           </div>}
           {attachment && <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-1">
+            {attachment.kind === 'IMAGE' && <ChatImage file={attachment.file} name={attachment.file.name}
+              className="size-16 shrink-0 rounded-lg object-cover" />}
             <span className="min-w-0 flex-1 truncate">{attachment.file.name}</span>
             <button type="button" className={iconButton} disabled={sending} onClick={() => setAttachment(null)} aria-label={t.cancel}><X size={18} /></button>
           </div>}

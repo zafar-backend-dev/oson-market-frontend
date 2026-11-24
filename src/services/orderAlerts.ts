@@ -4,6 +4,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import type { Language } from '../types/auth';
 
 const CHANNEL = 'oson_order_updates';
+const CHAT_CHANNEL = 'oson_chat_messages';
 const shownNotifications = new Set<string>();
 let nextId = Math.floor(Date.now() % 2_000_000_000);
 
@@ -17,6 +18,13 @@ export async function enableOrderAlerts(language: Language): Promise<void> {
       visibility: 0,
       vibration: true,
     });
+    await LocalNotifications.createChannel({
+      id: CHAT_CHANNEL,
+      name: language === 'ru' ? 'Сообщения чата' : 'Chat xabarlari',
+      importance: 5,
+      visibility: 0,
+      vibration: true,
+    });
   }
   const permission = await LocalNotifications.checkPermissions();
   if (permission.display === 'prompt' || permission.display === 'prompt-with-rationale') {
@@ -25,6 +33,19 @@ export async function enableOrderAlerts(language: Language): Promise<void> {
 }
 
 export async function showOrderAlert(orderId: string, status: string, language: Language, notificationId?: string): Promise<void> {
+  return showAlert(CHANNEL,
+    language === 'ru' ? `Статус заказа: ${status}` : `Buyurtma holati: ${status}`,
+    { orderId }, notificationId);
+}
+
+export async function showChatAlert(messageId: string, language: Language): Promise<void> {
+  return showAlert(CHAT_CHANNEL,
+    language === 'ru' ? 'Новое сообщение от администратора.' : 'Admin sizga yangi xabar yubordi.',
+    { type: 'CHAT_MESSAGE', messageId }, 'chat-' + messageId);
+}
+
+async function showAlert(channelId: string, body: string, extra: Record<string, string>,
+                         notificationId?: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   const { display } = await LocalNotifications.checkPermissions();
   if (display !== 'granted') return;
@@ -37,28 +58,34 @@ export async function showOrderAlert(orderId: string, status: string, language: 
     }
   }
   nextId = (nextId + 1) % 2_000_000_000;
-  await LocalNotifications.schedule({
-    notifications: [{ id: nextId, title: 'Oson Market',
-      body: language === 'ru' ? `\u0421\u0442\u0430\u0442\u0443\u0441 \u0437\u0430\u043a\u0430\u0437\u0430: ${status}` : `Buyurtma holati: ${status}`,
-      channelId: CHANNEL, extra: { orderId } }],
-  });
+  try {
+    await LocalNotifications.schedule({
+      notifications: [{ id: nextId, title: 'Oson Market', body, channelId, extra }],
+    });
+  } catch (error) {
+    if (notificationId) shownNotifications.delete(notificationId);
+    throw error;
+  }
 }
 
 const ORDER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function watchOrderAlertTaps(openOrder: (path: string) => void): () => void {
+export function watchOrderAlertTaps(openPath: (path: string) => void): () => void {
   if (!Capacitor.isNativePlatform()) return () => {};
   let active = true;
-  const open = (orderId: unknown) => {
-    if (active && typeof orderId === 'string' && ORDER_ID_PATTERN.test(orderId)) {
-      openOrder('/orders/' + orderId);
+  const open = (data?: { type?: unknown; messageId?: unknown; orderId?: unknown }) => {
+    if (!active || !data) return;
+    if (data.type === 'CHAT_MESSAGE' && typeof data.messageId === 'string' && /^[1-9]\d*$/.test(data.messageId)) {
+      openPath('/chat');
+    } else if (typeof data.orderId === 'string' && ORDER_ID_PATTERN.test(data.orderId)) {
+      openPath('/orders/' + data.orderId);
     }
   };
   const listeners = [
-    LocalNotifications.addListener('localNotificationActionPerformed', ({ notification }) => open(notification.extra?.orderId)),
+    LocalNotifications.addListener('localNotificationActionPerformed', ({ notification }) => open(notification.extra)),
   ];
   if (Capacitor.getPlatform() === 'android') {
-    listeners.push(PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => open(notification.data?.orderId)));
+    listeners.push(PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => open(notification.data)));
   }
   for (const listener of listeners) void listener.catch(() => {});
   return () => {

@@ -4,7 +4,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { API_BASE_URL } from '../constants';
 import type { Language } from '../types/auth';
 import { getOrderStatusLabel } from '../utils/orderStatus';
-import { enableOrderAlerts, showOrderAlert } from './orderAlerts';
+import { enableOrderAlerts, showChatAlert, showOrderAlert } from './orderAlerts';
 
 const DEVICE_KEY = 'oson_market_order_push_token';
 const deviceUrl = new URL('/api/orders/notifications/device', API_BASE_URL).href;
@@ -31,7 +31,12 @@ export function startOrderPush(language: Language, accessToken: () => string | n
       }).catch(() => {});
     }),
     PushNotifications.addListener('pushNotificationReceived', ({ data }) => {
-      if (!active || !accessToken() || typeof data?.orderId !== 'string' || typeof data.notificationId !== 'string'
+      if (!active || !accessToken()) return;
+      if (data?.type === 'CHAT_MESSAGE' && typeof data.messageId === 'string' && /^[1-9]\d*$/.test(data.messageId)) {
+        void showChatAlert(data.messageId, language).catch(() => {});
+        return;
+      }
+      if (typeof data?.orderId !== 'string' || typeof data.notificationId !== 'string'
           || typeof data.status !== 'string') return;
       void showOrderAlert(data.orderId, getOrderStatusLabel(data.status, language), language, data.notificationId)
         .catch(() => {});
