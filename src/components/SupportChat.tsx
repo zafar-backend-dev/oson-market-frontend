@@ -1,8 +1,9 @@
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { ImagePlus, MessageCircle, Mic, Play, Reply, Send, Square, Trash2, X } from 'lucide-react';
-import { Drawer } from 'antd';
+import { Drawer, Image as ImagePreview } from 'antd';
+import { Browser } from '@capacitor/browser';
 import { ChatVoicePlayer, voiceTime } from './ChatVoicePlayer';
 import { API_BASE_URL } from '../constants';
 import type { Language } from '../types/auth';
@@ -101,7 +102,45 @@ const copy = {
   },
 };
 
-function ChatImage({ file, name, className }: { file: Blob; name: string; className: string }) {
+function ChatText({ text }: { text: string }) {
+  const parts = text.split(/((?:https?:\/\/|www\.)[^\s<>"']+|(?<![\w/])\/products\/[\w.-]+)/gi);
+  const linkStyle = 'break-all font-medium text-green-800 underline underline-offset-2';
+  return (
+    <p className="whitespace-pre-wrap break-words">
+      {parts.map((part, index) => {
+        if (index % 2 === 0) return part;
+        const value = part.replace(/[.,!?;:)\]}…]+$/u, '');
+        const suffix = part.slice(value.length);
+        let url: URL;
+        try {
+          url = new URL(/^www\./i.test(value) ? `https://${value}` : value, window.location.origin);
+        } catch {
+          return part;
+        }
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return part;
+        const productPath = url.pathname.startsWith('/products/') && (
+          url.origin === window.location.origin || url.hostname === 'osonmarket24.uz'
+          || url.hostname === 'www.osonmarket24.uz'
+        );
+        return (
+          <span key={index}>
+            {productPath
+              ? <Link className={linkStyle} to={url.pathname + url.search + url.hash}>{value}</Link>
+              : <a href={url.href} className={linkStyle} target="_blank" rel="noopener noreferrer"
+                  onClick={event => {
+                    if (!Capacitor.isNativePlatform()) return;
+                    event.preventDefault();
+                    void Browser.open({ url: url.href }).catch(() => window.open(url.href, '_blank', 'noopener'));
+                  }}>{value}</a>}
+            {suffix}
+          </span>
+        );
+      })}
+    </p>
+  );
+}
+
+function ChatImage({ file, name, className, zoom = false }: { file: Blob; name: string; className: string; zoom?: boolean }) {
   const [url, setUrl] = useState('');
   const [failed, setFailed] = useState(false);
 
@@ -136,6 +175,7 @@ function ChatImage({ file, name, className }: { file: Blob; name: string; classN
   }, [failed, file, name]);
 
   if (!url) return null;
+  if (zoom) return <ImagePreview src={url} alt={name} className={className} onError={() => setFailed(true)} />;
   return <img src={url} alt={name} className={className} onError={() => setFailed(true)} />;
 }
 
@@ -218,7 +258,7 @@ function Media({ message, request, language }: Pick<Props, 'request' | 'language
     {url ? <>
       {message.kind === 'VOICE' ? <ChatVoicePlayer url={url} language={language} autoPlay
         durationHint={Number(message.fileName?.match(/^voice-(\d+)\./)?.[1] ?? 0) / 1000} /> :
-        file && <ChatImage file={file} name={message.fileName ?? ''}
+        file && <ChatImage file={file} name={message.fileName || (language === 'ru' ? 'Фото' : 'Rasm')} zoom
           className="max-h-72 max-w-full rounded-xl object-contain" />}
       {Capacitor.getPlatform() === 'android'
         ? <button type="button" disabled={saving} onClick={() => void save()} className="min-h-9 text-sm underline">
@@ -772,7 +812,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
                 <div className={`min-w-0 max-w-[88%] rounded-2xl px-3 py-2 transition-shadow sm:max-w-[75%] ${own ? 'bg-green-100' : 'border border-slate-200 bg-white'} ${onBack ? 'select-none' : ''} ${highlightedId === message.id ? 'ring-2 ring-green-600 ring-offset-2' : ''}`}
                   onPointerDown={event => {
                     if (!onBack || message.deleted || !event.isPrimary || event.button !== 0 ||
-                        (event.target as Element).closest('button, a, audio')) return;
+                        (event.target as Element).closest('button, a, audio, .ant-image')) return;
                     cancelPress();
                     press.current = { x: event.clientX, y: event.clientY, timer: window.setTimeout(() => {
                       press.current = null;
@@ -786,7 +826,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
                   }}
                   onPointerUp={cancelPress} onPointerCancel={cancelPress} onPointerLeave={cancelPress}
                   onContextMenu={event => {
-                    if (!onBack || message.deleted || (event.target as Element).closest('button, a, audio')) return;
+                    if (!onBack || message.deleted || (event.target as Element).closest('button, a, audio, .ant-image')) return;
                     event.preventDefault();
                     cancelPress();
                     setActionId(message.id);
@@ -805,7 +845,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
                     <span className="truncate">{quote(message.replyToId)}</span>
                   </button>}
                   {message.deleted ? <p className="text-sm italic text-slate-600">{labels.deleted}</p> :
-                    message.kind === 'TEXT' ? <p className="whitespace-pre-wrap break-words">{message.text}</p> :
+                    message.kind === 'TEXT' ? <ChatText text={message.text ?? ''} /> :
                     <Media message={message} request={request} language={language} />}
                   {!message.deleted && reactions.length > 0 &&
                     <div className="mt-2 flex flex-wrap gap-1.5" aria-label={labels.react}>
