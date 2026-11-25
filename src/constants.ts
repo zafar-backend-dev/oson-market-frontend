@@ -1,11 +1,11 @@
 // export const BACKEND_API_URL = 'http://localhost:8080';
-export const BACKEND_API_URL = 'https://osonmarket-backend.onrender.com';
+export const BACKEND_API_URL = 'https://api.osonmarket24.uz';
 
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ||
   BACKEND_API_URL;
 
-export const PUBLIC_SITE_ORIGIN = 'https://oson-market-frontend.vercel.app';
+export const PUBLIC_SITE_ORIGIN = 'https://osonmarket24.uz';
 
 declare const __BUNDLED_ANDROID_APK__: boolean;
 export const ANDROID_APK_URL = import.meta.env.VITE_ANDROID_APK_URL?.trim() ||
