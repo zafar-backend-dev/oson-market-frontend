@@ -6,6 +6,7 @@ interface LanguageSelectorProps {
   value: Language;
   onChange: (lang: Language) => void;
   ariaLabel?: string;
+  fullWidth?: boolean;
 }
 
 function UzFlag() {
@@ -51,16 +52,17 @@ const LANGUAGE_OPTIONS: {
   { value: 'ru', label: 'Русский', code: 'RU', flag: 'ru' },
 ];
 
-export function LanguageSelector({ value, onChange, ariaLabel }: LanguageSelectorProps) {
+export function LanguageSelector({ value, onChange, ariaLabel, fullWidth = false }: LanguageSelectorProps) {
   return (
-    <div className="shrink-0">
+    <div className={fullWidth ? "w-full" : "shrink-0"}>
         <Select<Language>
           value={value}
           onChange={onChange}
           aria-label={ariaLabel || 'Language'}
           suffix={<ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
-          popupMatchSelectWidth={false}
-          className="oson-lang-select w-[52px] sm:w-[142px]"
+          popupMatchSelectWidth={fullWidth}
+          size={fullWidth ? 'large' : 'middle'}
+          className={fullWidth ? "w-full" : "oson-lang-select w-[52px] sm:w-[142px]"}
           styles={{
             popup: {
               root: {
@@ -76,7 +78,7 @@ export function LanguageSelector({ value, onChange, ariaLabel }: LanguageSelecto
             return (
               <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-800 whitespace-nowrap">
                 {opt.flag === 'uz' ? <UzFlag /> : <RuFlag />}
-                <span className="sr-only sm:not-sr-only">{opt.label}</span>
+                <span className={fullWidth ? "text-sm" : "sr-only sm:not-sr-only"}>{opt.label}</span>
               </span>
             );
           }}

@@ -799,7 +799,7 @@ export function StoreHeader({
         afterOpenChange={handleDrawerAfterOpenChange}
         keyboard
         closable={{ 'aria-label': th.closeMenuAriaLabel }}
-        size={300}
+        size="100%"
       >
         <div className="flex flex-col h-full justify-between gap-6">
           <div className="space-y-4">
@@ -886,35 +886,9 @@ export function StoreHeader({
               )}
             </nav>
 
-            {/* Quick Language Switch inside Mobile Drawer */}
-            <div className="pt-3 border-t border-[#f2f0ea] space-y-2">
-              <div className="px-1 text-xs font-medium text-slate-500">{t.languageLabel}</div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => onLanguageChange('uz')}
-                  aria-pressed={language === 'uz'}
-                  className={`min-h-[40px] rounded-lg border text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16a34a] focus-visible:ring-offset-2 ${
-                    language === 'uz'
-                      ? 'border-[#16a34a] bg-[#f0fdf4] text-[#15803d]'
-                      : 'border-[#e6e4dd] bg-white text-slate-700 hover:bg-[#f7f6f2]'
-                  }`}
-                >
-                  O‘zbekcha (UZ)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onLanguageChange('ru')}
-                  aria-pressed={language === 'ru'}
-                  className={`min-h-[40px] rounded-lg border text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16a34a] focus-visible:ring-offset-2 ${
-                    language === 'ru'
-                      ? 'border-[#16a34a] bg-[#f0fdf4] text-[#15803d]'
-                      : 'border-[#e6e4dd] bg-white text-slate-700 hover:bg-[#f7f6f2]'
-                  }`}
-                >
-                  Русский (RU)
-                </button>
-              </div>
+            <div className="space-y-2 border-t border-[#f2f0ea] pt-4">
+              <div className="text-sm font-medium text-slate-700">{t.languageLabel}</div>
+              <LanguageSelector fullWidth value={language} onChange={onLanguageChange} ariaLabel={t.languageLabel} />
             </div>
           </div>
 

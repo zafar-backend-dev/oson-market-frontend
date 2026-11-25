@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { Alert, App as AntApp, Button, Checkbox, Drawer, Input, Skeleton } from 'antd';
+import { Alert, App as AntApp, Button, Drawer, Input, Skeleton } from 'antd';
 import {
   Archive,
   CalendarClock,
@@ -21,7 +21,6 @@ import { sessionManager } from '../services/sessionManager';
 import type {
   AdminAdvertisementItem,
   AdminAdvertisementPayload,
-  AdvertisementChannel,
   AdvertisementMediaKind,
   AdvertisementStatus,
 } from '../types/adminAdvertisement';
@@ -117,7 +116,6 @@ export function AdminAdvertisementFormDrawer({
   const [uzDescription, setUzDescription] = useState('');
   const [ruTitle, setRuTitle] = useState('');
   const [ruDescription, setRuDescription] = useState('');
-  const [channels, setChannels] = useState<AdvertisementChannel[]>(['WEB']);
   const [targetUrl, setTargetUrl] = useState('');
   const [startsAtLocal, setStartsAtLocal] = useState('');
   const [endsAtLocal, setEndsAtLocal] = useState('');
@@ -158,7 +156,6 @@ export function AdminAdvertisementFormDrawer({
     setUzDescription(ad.uz.description ?? '');
     setRuTitle(ad.ru.title ?? '');
     setRuDescription(ad.ru.description ?? '');
-    setChannels(ad.channels.length > 0 ? [...ad.channels] : ['WEB']);
     setTargetUrl(ad.targetUrl ?? '');
     setStartsAtLocal(toLocalDateTimeInputValue(ad.startsAt));
     setEndsAtLocal(toLocalDateTimeInputValue(ad.endsAt));
@@ -173,7 +170,6 @@ export function AdminAdvertisementFormDrawer({
     setUzDescription('');
     setRuTitle('');
     setRuDescription('');
-    setChannels(['WEB']);
     setTargetUrl('');
     setStartsAtLocal('');
     setEndsAtLocal('');
@@ -370,13 +366,10 @@ export function AdminAdvertisementFormDrawer({
       errors.ruDescription = tv.ruDescriptionMax;
     }
 
-    if (channels.length === 0) {
-      errors.channels = tv.channelsRequired;
-    }
 
     const cleanTargetUrl = targetUrl.trim();
-    if (cleanTargetUrl && !isValidAdvertisementTargetUrl(cleanTargetUrl)) {
-      errors.targetUrl = tv.targetUrlInvalid;
+    if (!isValidAdvertisementTargetUrl(cleanTargetUrl)) {
+      errors.targetUrl = language === 'ru' ? 'Укажите путь /products/идентификатор.' : '/products/mahsulot-id ko‘rinishida kiriting.';
     }
 
     const startsIso = fromLocalDateTimeInputValue(startsAtLocal);
@@ -411,7 +404,7 @@ export function AdminAdvertisementFormDrawer({
         title: cleanRuTitle,
         description: cleanRuDesc ? cleanRuDesc : null,
       },
-      channels: [...channels],
+      channels: ['APP'],
       targetUrl: cleanTargetUrl ? cleanTargetUrl : null,
       startsAt: startsIso,
       endsAt: endsIso,
@@ -598,7 +591,7 @@ export function AdminAdvertisementFormDrawer({
                     onClick={() => void handleStatusButtonClick('PUBLISHED')}
                     className="!min-h-[40px]"
                   >
-                    {ta.actions.publish}
+                    {language === 'ru' ? 'Отправить push' : 'Bildirishnoma yuborish'}
                   </Button>
                 )}
                 {allowedTransitions.includes('PAUSED') && (
@@ -838,34 +831,11 @@ export function AdminAdvertisementFormDrawer({
 
           {/* Channels, Target URL & Sort Order */}
           <section className="rounded-xl border border-[#e6e4dd] bg-white p-4 space-y-4">
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-700">
-                {td.channelsLabel} <span className="text-red-500">*</span>
-              </label>
-              <Checkbox.Group
-                disabled={isArchived || busy}
-                value={channels}
-                onChange={(values) => {
-                  setChannels(values as AdvertisementChannel[]);
-                  if (fieldErrors.channels) {
-                    setFieldErrors((prev) => ({ ...prev, channels: undefined }));
-                  }
-                }}
-                className="flex flex-wrap gap-3"
-              >
-                <Checkbox value="WEB">{ta.channels.WEB}</Checkbox>
-                <Checkbox value="APP">{ta.channels.APP}</Checkbox>
-              </Checkbox.Group>
-              <div className="text-xs text-slate-500">{td.channelsHint}</div>
-              {fieldErrors.channels && (
-                <div className="text-xs text-red-600">{fieldErrors.channels}</div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+            <p className="text-sm font-medium text-green-800">Android push</p>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
               <div className="sm:col-span-8 space-y-1.5">
                 <label className="block text-xs font-medium text-slate-700">
-                  {td.targetUrlLabel}
+                  {language === 'ru' ? 'Путь к товару' : 'Mahsulot havolasi'} *
                 </label>
                 <Input
                   size="large"
@@ -878,10 +848,10 @@ export function AdminAdvertisementFormDrawer({
                       setFieldErrors((prev) => ({ ...prev, targetUrl: undefined }));
                     }
                   }}
-                  placeholder={td.targetUrlPlaceholder}
+                  placeholder="/products/choyan-qozon"
                   status={fieldErrors.targetUrl ? 'error' : undefined}
                 />
-                <div className="text-xs text-slate-500">{td.targetUrlHint}</div>
+                <div className="text-xs text-slate-500">/products/{'{productId}'}</div>
                 {fieldErrors.targetUrl && (
                   <div className="text-xs text-red-600">{fieldErrors.targetUrl}</div>
                 )}

@@ -107,22 +107,7 @@ export async function validateAdvertisementMediaFile(
 }
 
 export function isValidAdvertisementTargetUrl(rawValue: string): boolean {
-  const trimmed = rawValue.trim();
-  if (!trimmed) return true;
-  if (trimmed.length > AD_TARGET_URL_MAX_LENGTH) return false;
-  if (/\s/.test(trimmed)) return false;
-
-  // Allow relative internal paths such as /products/choyan-qozon (never //)
-  if (trimmed.startsWith('/')) {
-    return !trimmed.startsWith('//');
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.protocol === 'https:' && Boolean(parsed.hostname);
-  } catch {
-    return false;
-  }
+  return /^\/products\/[A-Za-z0-9_-]{1,210}$/.test(rawValue.trim());
 }
 
 export function getAllowedAdvertisementStatusTransitions(

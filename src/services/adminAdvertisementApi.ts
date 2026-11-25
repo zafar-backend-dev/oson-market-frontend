@@ -426,6 +426,21 @@ export const adminAdvertisementApi = {
     return normalizeAdvertisementItem(raw);
   },
 
+  async send(accessToken: string, id: string, expectedRevision: number, language: Language) {
+    return requestAdminAdvertisements<{ pushStatus: string }>(
+      `/api/admin/advertisements/${encodeURIComponent(id)}/send`,
+      { method: 'POST', accessToken, language, jsonBody: { expectedRevision } },
+    );
+  },
+
+  async latestPushStatus(accessToken: string, id: string, language: Language) {
+    const result = await requestAdminAdvertisements<{ content: { pushStatus: string | null }[] }>(
+      `/api/admin/advertisements/${encodeURIComponent(id)}/dispatches?page=0&size=1`,
+      { method: 'GET', accessToken, language },
+    );
+    return result.content[0]?.pushStatus ?? null;
+  },
+
   async updateStatus(
     accessToken: string,
     id: string,

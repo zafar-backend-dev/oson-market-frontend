@@ -363,10 +363,6 @@ export function AdminAdvertisementsPage({
       if (statusSubmittingId) return null;
       const ad = item.advertisement;
 
-      if (!ad.media?.url) {
-        message.error(ta.validation.publishMediaRequired);
-        return null;
-      }
 
       if (ad.endsAt) {
         const endsMs = new Date(ad.endsAt).getTime();
@@ -381,18 +377,10 @@ export function AdminAdvertisementsPage({
 
       setStatusSubmittingId(ad.id);
       try {
-        const updated = await adminAdvertisementApi.updateStatus(
-          token,
-          ad.id,
-          {
-            expectedRevision: ad.revision,
-            status: 'PUBLISHED',
-            reason: null,
-          },
-          language,
-        );
+        await adminAdvertisementApi.send(token, ad.id, ad.revision, language);
+        const updated = await adminAdvertisementApi.getAdvertisementById(token, ad.id, language);
         upsertItemInList(updated);
-        message.success(ta.notifications.publishedSuccess);
+        message.success(language === 'ru' ? 'Уведомление поставлено в очередь' : 'Bildirishnoma yuborish navbatiga qo‘shildi');
         void loadAdvertisements(page, size, debouncedQuery, channelFilter, statusFilter);
         return updated;
       } catch (error) {
@@ -404,7 +392,7 @@ export function AdminAdvertisementsPage({
           if (error.status === 403) {
             setFormDrawerOpen(false);
             setForbiddenState({
-              endpoint: error.endpoint || `PATCH /api/admin/advertisements/${ad.id}/status`,
+              endpoint: error.endpoint || `POST /api/admin/advertisements/${ad.id}/send`,
               message: error.message,
             });
             return null;
@@ -474,7 +462,7 @@ export function AdminAdvertisementsPage({
           if (error.status === 403) {
             setFormDrawerOpen(false);
             setForbiddenState({
-              endpoint: error.endpoint || `PATCH /api/admin/advertisements/${ad.id}/status`,
+              endpoint: error.endpoint || `POST /api/admin/advertisements/${ad.id}/send`,
               message: error.message,
             });
             return null;
@@ -558,7 +546,7 @@ export function AdminAdvertisementsPage({
           setArchiveTarget(null);
           setFormDrawerOpen(false);
           setForbiddenState({
-            endpoint: error.endpoint || `PATCH /api/admin/advertisements/${ad.id}/status`,
+            endpoint: error.endpoint || `POST /api/admin/advertisements/${ad.id}/send`,
             message: error.message,
           });
           return;
@@ -675,7 +663,7 @@ export function AdminAdvertisementsPage({
             onClick={() => void handleRequestPublish(item)}
             className="!inline-flex !items-center !min-h-[34px]"
           >
-            {ta.actions.publish}
+            {language === 'ru' ? 'Отправить push' : 'Bildirishnoma yuborish'}
           </Button>
         )}
 
@@ -747,23 +735,6 @@ export function AdminAdvertisementsPage({
       key: 'media',
       width: 120,
       render: (_, item) => renderMediaBadge(item),
-    },
-    {
-      title: ta.columns.channels,
-      key: 'channels',
-      width: 130,
-      render: (_, item) => (
-        <div className="flex flex-wrap gap-1">
-          {item.advertisement.channels.map((ch) => (
-            <span
-              key={ch}
-              className="inline-flex items-center px-2 py-0.5 rounded bg-[#faf9f5] border border-[#e6e4dd] text-xs font-medium text-slate-700 whitespace-nowrap"
-            >
-              {ch}
-            </span>
-          ))}
-        </div>
-      ),
     },
     {
       title: ta.columns.schedule,
@@ -900,7 +871,7 @@ export function AdminAdvertisementsPage({
                     </span>
                   </span>
                 </div>
-                <p className="text-sm text-slate-600">{ta.subtitle}</p>
+                <p className="text-sm text-slate-600">{language === 'ru' ? 'Push-уведомления о товарах для Android.' : 'Android ilovasiga mahsulot havolasi bilan bildirishnoma yuboring.'}</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -958,22 +929,7 @@ export function AdminAdvertisementsPage({
                   />
                 </div>
 
-                <div className="lg:col-span-3 space-y-1">
-                  <label className="block text-xs font-medium text-slate-600">
-                    {ta.channelFilterLabel}
-                  </label>
-                  <Select<'ALL' | AdvertisementChannel>
-                    size="large"
-                    className="w-full"
-                    value={channelFilter}
-                    onChange={handleChannelFilterChange}
-                    options={[
-                      { value: 'ALL', label: ta.allChannels },
-                      { value: 'WEB', label: ta.channels.WEB },
-                      { value: 'APP', label: ta.channels.APP },
-                    ]}
-                  />
-                </div>
+
 
                 <div className="lg:col-span-3 space-y-1">
                   <label className="block text-xs font-medium text-slate-600">
@@ -1106,14 +1062,7 @@ export function AdminAdvertisementsPage({
 
                         <div className="flex flex-wrap items-center gap-2 text-xs">
                           {renderMediaBadge(item)}
-                          {ad.channels.map((ch) => (
-                            <span
-                              key={ch}
-                              className="inline-flex items-center px-2 py-0.5 rounded bg-[#faf9f5] border border-[#e6e4dd] font-medium text-slate-700"
-                            >
-                              {ch}
-                            </span>
-                          ))}
+
                           <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#faf9f5] border border-[#e6e4dd] font-mono text-slate-500 tabular-nums">
                             {ta.sortOrderLabel}: #{ad.sortOrder}
                           </span>

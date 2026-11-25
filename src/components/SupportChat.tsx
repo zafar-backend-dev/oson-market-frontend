@@ -1,7 +1,9 @@
+import { useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { ImagePlus, MessageCircle, Mic, Reply, Send, Square, Trash2, X } from 'lucide-react';
+import { ImagePlus, MessageCircle, Mic, Play, Reply, Send, Square, Trash2, X } from 'lucide-react';
 import { Drawer } from 'antd';
+import { ChatVoicePlayer, voiceTime } from './ChatVoicePlayer';
 import { API_BASE_URL } from '../constants';
 import type { Language } from '../types/auth';
 
@@ -20,8 +22,9 @@ type Message = {
   userReaction?: string | null; adminReaction?: string | null; revision?: number;
 };
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '👏', '🎉', '😍', '😊', '🤔', '😎', '🤩', '💯', '✅', '👎', '😡', '🙌', '💚', '✨', '👀', '🤝', '💪'];
-type Conversation = { userId: string; username: string | null; unread: number; lastMessageId: number };
-type Customer = { id: string; role: string; username: string; email: string };
+type ChatProfile = { firstName?: string | null; lastName?: string | null; phone?: string | null };
+type Conversation = ChatProfile & { userId: string; username: string | null; unread: number; lastMessageId: number };
+type Customer = ChatProfile & { id: string; role: string; username: string; email: string };
 type Attachment = { kind: 'IMAGE' | 'VOICE'; file: File; requestId: string };
 type Activity = { activity: string; expiresAt: string };
 
@@ -213,7 +216,8 @@ function Media({ message, request, language }: Pick<Props, 'request' | 'language
 
   return <div ref={preview} className={message.kind === 'IMAGE' ? 'min-h-16 min-w-24' : undefined}>
     {url ? <>
-      {message.kind === 'VOICE' ? <audio controls src={url} className="max-w-full" /> :
+      {message.kind === 'VOICE' ? <ChatVoicePlayer url={url} language={language} autoPlay
+        durationHint={Number(message.fileName?.match(/^voice-(\d+)\./)?.[1] ?? 0) / 1000} /> :
         file && <ChatImage file={file} name={message.fileName ?? ''}
           className="max-h-72 max-w-full rounded-xl object-contain" />}
       {Capacitor.getPlatform() === 'android'
@@ -223,8 +227,11 @@ function Media({ message, request, language }: Pick<Props, 'request' | 'language
         : <a href={url} download={message.fileName ?? undefined} className="text-sm underline">{t.download}</a>}
       {saveStatus && <p role="status" className="text-xs text-slate-700">{saveStatus}</p>}
     </> : <>
-      <button type="button" className="underline" onClick={open} disabled={loading}>
-        {loading ? '…' : message.fileName || t.open}
+      <button type="button" className={message.kind === 'VOICE'
+        ? 'flex min-h-11 items-center gap-2 rounded-full bg-green-700 px-4 font-medium text-white disabled:opacity-50'
+        : 'underline'} onClick={open} disabled={loading}>
+        {message.kind === 'VOICE' && <Play size={16} fill="currentColor" />}
+        {loading ? '…' : message.kind === 'VOICE' ? (language === 'ru' ? 'Прослушать' : 'Tinglash') : message.fileName || t.open}
       </button>
       {failed && <p role="alert">{t.failed}</p>}
     </>}
@@ -238,8 +245,25 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
         confirm: 'Удалить сообщение для всех?', quote: 'Сообщение', actions: 'Действия с сообщением' }
     : { reply: 'Javob berish', react: 'Reaksiya', remove: 'O‘chirish', deleted: 'Xabar o‘chirildi',
         confirm: 'Xabar ikkala tomon uchun o‘chirilsinmi?', quote: 'Xabar', actions: 'Xabar amallari' };
-  const [selected, setSelected] = useState<Customer | Conversation | null>(null);
-  const userId = selected ? ('userId' in selected ? selected.userId : selected.id) : undefined;
+  const [params, setParams] = useSearchParams();
+  const selectedId = params.get('user');
+  const userId = admin && selectedId && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(selectedId)
+    ? selectedId : undefined;
+  const [details, setDetails] = useState<Customer | null>(null);
+  const [profileError, setProfileError] = useState(false);
+  const profileRequest = useRef(request);
+  useEffect(() => { profileRequest.current = request; }, [request]);
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    void profileRequest.current(`/api/admin/users/${userId}`).then(async response => {
+      if (!response.ok) throw new Error();
+      const user = await response.json() as Customer;
+      if (active) setDetails(user);
+    }).catch(() => { if (active) setProfileError(true); });
+    return () => { active = false; };
+  }, [userId, token]);
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [hasMoreConversations, setHasMoreConversations] = useState(false);
   const [customers, setCustomers] = useState<Customer[] | null>(null);
@@ -278,6 +302,17 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   const pendingText = useRef<{ requestId: string; text: string; replyToId?: number } | null>(null);
   const typing = useRef<number | undefined>(undefined);
   const recorder = useRef<MediaRecorder | null>(null);
+  const recordAction = useRef<'preview' | 'send' | 'cancel'>('preview');
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState('');
+  useEffect(() => {
+    if (attachment?.kind !== 'VOICE') {
+      setVoicePreviewUrl('');
+      return;
+    }
+    const url = URL.createObjectURL(attachment.file);
+    setVoicePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [attachment]);
   const generation = useRef(0);
   const seen = useRef(0);
   const bottom = useRef<HTMLDivElement>(null);
@@ -495,28 +530,8 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   }, []);
 
   function choose(customer: Customer | Conversation | null) {
-    window.clearTimeout(typing.current);
     frame('ACTIVITY', { activity: 'IDLE' });
-    generation.current++;
-    const capture = recorder.current;
-    if (capture?.state === 'recording') capture.stop();
-    capture?.stream.getTracks().forEach(track => track.stop());
-    recorder.current = null;
-    pendingText.current = null;
-    setRecording(false);
-    setRequestingMic(false);
-    setDraft('');
-    setReplyToId(undefined);
-    setActionId(undefined);
-    setAttachment(null);
-    setError('');
-    setSending(false);
-    setReady(false);
-    setMessages([]);
-    setPeerActivities({});
-    setOlder(false);
-    setLoaded(false);
-    setSelected(customer);
+    setParams(customer ? { user: 'userId' in customer ? customer.userId : customer.id } : {});
   }
 
   async function find(query: string, page = 0) {
@@ -549,11 +564,14 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
     typing.current = window.setTimeout(() => frame('ACTIVITY', { activity: 'IDLE' }), 2000);
   }
 
+  function finishRecording(action: typeof recordAction.current) {
+    const capture = recorder.current;
+    if (capture?.state !== 'recording') return;
+    recordAction.current = action;
+    capture.stop();
+  }
+
   async function record() {
-    if (recorder.current?.state === 'recording') {
-      recorder.current.stop();
-      return;
-    }
     const attempt = generation.current;
     setRequestingMic(true);
     setError('');
@@ -568,6 +586,8 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
         .find(type => MediaRecorder.isTypeSupported(type));
       const capture = new MediaRecorder(stream, { mimeType });
       recorder.current = capture;
+      recordAction.current = 'preview';
+      const started = performance.now();
       const chunks: Blob[] = [];
       let recordedBytes = 0;
       capture.ondataavailable = event => {
@@ -582,11 +602,16 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
         recorder.current = null;
         setRecording(false);
         frame('ACTIVITY', { activity: 'IDLE' });
+        if (recordAction.current === 'cancel') return;
         if (recordedBytes > 10 * 1024 * 1024) return setError(t.size);
         if (!recordedBytes) return setError(t.failed);
         const type = capture.mimeType.split(';')[0];
         const extension = type === 'audio/mp4' ? 'm4a' : type === 'audio/ogg' ? 'ogg' : 'webm';
-        setAttachment({ kind: 'VOICE', file: new File(chunks, `voice.${extension}`, { type }), requestId: crypto.randomUUID() });
+        const duration = Math.max(1, Math.round(performance.now() - started));
+        const voice: Attachment = { kind: 'VOICE', file: new File(chunks, `voice-${duration}.${extension}`, { type }),
+          requestId: crypto.randomUUID() };
+        setAttachment(voice);
+        if (recordAction.current === 'send') void uploadAttachment(voice);
       };
       window.clearTimeout(typing.current);
       capture.start(1000);
@@ -614,6 +639,10 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
       }
       return;
     }
+    await uploadAttachment(attachment);
+  }
+
+  async function uploadAttachment(attachment: Attachment) {
     const attempt = generation.current;
     setSending(true);
     const body = new FormData();
@@ -659,6 +688,12 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
     }
   }
 
+  const selected = details ?? conversations.find(item => item.userId === userId);
+  function profileName(customer: Customer | Conversation) {
+    return [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim() ||
+      customer.username || ('email' in customer ? customer.email : customer.userId);
+  }
+
   const active = Object.values(peerActivities);
   const messagesById = new Map(messages.map(message => [message.id, message]));
   const actionMessage = onBack && actionId ? messagesById.get(actionId) : undefined;
@@ -694,7 +729,13 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
             const id = 'userId' in customer ? customer.userId : customer.id;
             return <button key={id} onClick={() => { if (id !== userId) choose(customer); }}
               className={`flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-3 text-left ${id === userId ? 'bg-green-50 text-green-800' : 'hover:bg-slate-50'}`}>
-              <span className="min-w-0 truncate">{customer.username || ('email' in customer ? customer.email : id)}</span>
+              <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-green-100 text-sm font-semibold text-green-900">
+                {profileName(customer).slice(0, 1).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">{profileName(customer)}</span>
+                <span className="block truncate text-xs text-slate-600">{customer.phone || (customer.username ? '@' + customer.username : '')}</span>
+              </span>
               {'unread' in customer && customer.unread > 0 &&
                 <span className="rounded-full bg-green-700 px-2 text-sm text-white">{customer.unread}</span>}
             </button>;
@@ -711,7 +752,10 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
           {onBack && <button type="button" onClick={onBack} className="float-left mr-3 size-11 rounded-xl bg-slate-100"
             aria-label={language === 'ru' ? 'Назад' : 'Orqaga'}>←</button>}
           {admin && <button className="mb-1 min-h-11 text-green-800 md:hidden" onClick={() => choose(null)}>← {t.back}</button>}
-          <h2 className="text-lg font-semibold">{selected?.username || t.support}</h2>
+          <h2 className="text-lg font-semibold">{selected ? profileName(selected) : admin ? t.title : t.support}</h2>
+          {admin && selected?.phone && <a href={`tel:${selected.phone.replace(/[^+\d]/g, '')}`}
+            className="inline-block rounded-full bg-green-50 px-2 py-1 text-sm font-medium text-green-800">{selected.phone}</a>}
+          {admin && profileError && !selected && <p role="status" className="text-sm text-slate-600">{t.noUsers}</p>}
           <p className="min-h-5 text-sm text-slate-600" aria-live="polite">{peerStatus || (ready ? t.online : t.offline)}</p>
         </header>
         <div className={`overflow-y-auto overscroll-contain bg-slate-50 px-3 py-3 sm:px-5 ${fullScreen
@@ -813,18 +857,33 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
             <button type="button" className={iconButton} disabled={sending} onClick={() => setReplyToId(undefined)}
               aria-label={t.cancel}><X size={18} /></button>
           </div>}
-          {recording && <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
-            <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-red-600 motion-reduce:animate-none" />
-            <span className="flex-1" role="status">{t.recording}</span>
-            <time className="tabular-nums">{String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')}</time>
+          {recording && <div className="flex items-center gap-2 rounded-2xl border border-red-100 bg-red-50 p-2">
+            <button type="button" className={iconButton} onClick={() => finishRecording('cancel')} aria-label={t.cancel}>
+              <Trash2 size={18} className="text-red-700" />
+            </button>
+            <div className="min-w-0 flex-1 px-1">
+              <div className="flex items-center gap-2">
+                <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-red-600 motion-reduce:animate-none" />
+                <time className="font-semibold tabular-nums text-red-900">{voiceTime(recordingSeconds)}</time>
+              </div>
+              <p role="status" className="truncate text-xs text-red-800">{t.recording}</p>
+            </div>
+            <button type="button" className={iconButton} onClick={() => finishRecording('preview')} aria-label={t.stop}>
+              <Square size={17} fill="currentColor" className="text-red-700" />
+            </button>
+            <button type="button" className="grid size-11 shrink-0 place-items-center rounded-full bg-green-700 text-white disabled:opacity-40"
+              disabled={!ready} onClick={() => finishRecording('send')} aria-label={t.send}><Send size={18} /></button>
           </div>}
           {attachment && <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-1">
             {attachment.kind === 'IMAGE' && <ChatImage file={attachment.file} name={attachment.file.name}
               className="size-16 shrink-0 rounded-lg object-cover" />}
-            <span className="min-w-0 flex-1 truncate">{attachment.file.name}</span>
+            {attachment.kind === 'VOICE' ? <div className="min-w-0 flex-1">
+              {voicePreviewUrl && <ChatVoicePlayer url={voicePreviewUrl} language={language}
+                durationHint={Number(attachment.file.name.match(/^voice-(\d+)\./)?.[1] ?? 0) / 1000} />}
+            </div> : <span className="min-w-0 flex-1 truncate">{attachment.file.name}</span>}
             <button type="button" className={iconButton} disabled={sending} onClick={() => setAttachment(null)} aria-label={t.cancel}><X size={18} /></button>
           </div>}
-          <div className="flex items-end gap-1.5 sm:gap-2">
+          {!recording && <div className="flex items-end gap-1.5 sm:gap-2">
             <input type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.svg,.psd,.jxl,.jp2,.dng,.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf" ref={input} hidden onChange={event => {
               const file = event.target.files?.[0];
               event.target.value = '';
@@ -833,15 +892,15 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
               setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
             }} />
             <button type="button" className={iconButton} disabled={sending || recording || requestingMic} onClick={() => input.current?.click()} aria-label={t.image}><ImagePlus size={19} /></button>
-            <button type="button" className={iconButton} disabled={sending || requestingMic || !!attachment} onClick={() => void record()} aria-label={recording ? t.stop : t.voice}>
-              {recording ? <Square size={18} className="text-red-700" /> : <Mic size={19} />}
+            <button type="button" className={iconButton} disabled={sending || requestingMic || !!attachment} onClick={() => void record()} aria-label={t.voice}>
+              <Mic size={19} />
             </button>
             <textarea className="min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2.5"
               rows={1} aria-label={t.write} placeholder={t.write} maxLength={4000} value={draft}
               disabled={sending || recording || !!attachment} onChange={event => changeDraft(event.target.value)} />
             <button className="grid size-11 shrink-0 place-items-center rounded-xl bg-green-700 text-white disabled:opacity-40"
               disabled={!ready || sending || recording || (!draft.trim() && !attachment)} aria-label={t.send}><Send size={18} /></button>
-          </div>
+          </div>}
         </form>
       </section> : <section className="hidden min-h-96 place-content-center justify-items-center gap-3 text-slate-600 md:grid">
         <MessageCircle size={32} /><p>{t.choose}</p>

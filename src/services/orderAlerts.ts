@@ -45,7 +45,7 @@ export async function showChatAlert(messageId: string, language: Language): Prom
 }
 
 async function showAlert(channelId: string, body: string, extra: Record<string, string>,
-                         notificationId?: string): Promise<void> {
+                         notificationId?: string, title = 'Oson Market'): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   const { display } = await LocalNotifications.checkPermissions();
   if (display !== 'granted') return;
@@ -60,7 +60,7 @@ async function showAlert(channelId: string, body: string, extra: Record<string, 
   nextId = (nextId + 1) % 2_000_000_000;
   try {
     await LocalNotifications.schedule({
-      notifications: [{ id: nextId, title: 'Oson Market', body, channelId, extra }],
+      notifications: [{ id: nextId, title, body, channelId, extra }],
     });
   } catch (error) {
     if (notificationId) shownNotifications.delete(notificationId);
@@ -75,6 +75,11 @@ export function watchOrderAlertTaps(openPath: (path: string) => void): () => voi
   let active = true;
   const open = (data?: { type?: unknown; messageId?: unknown; orderId?: unknown }) => {
     if (!active || !data) return;
+    if (data.type === 'PROMOTION' && 'target' in data && typeof data.target === 'string'
+        && /^\/products\/[A-Za-z0-9_-]{1,210}$/.test(data.target)) {
+      openPath(data.target);
+      return;
+    }
     if (data.type === 'CHAT_MESSAGE' && typeof data.messageId === 'string' && /^[1-9]\d*$/.test(data.messageId)) {
       openPath('/chat');
     } else if (typeof data.orderId === 'string' && ORDER_ID_PATTERN.test(data.orderId)) {
@@ -92,4 +97,8 @@ export function watchOrderAlertTaps(openPath: (path: string) => void): () => voi
     active = false;
     for (const listener of listeners) void listener.then(handle => handle.remove()).catch(() => {});
   };
+}
+
+export function showPromotionAlert(id: string, title: string, body: string, target: string) {
+  return showAlert('oson_promotions', body, { type: 'PROMOTION', target }, 'promo-' + id, title);
 }

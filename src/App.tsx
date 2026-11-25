@@ -1,4 +1,5 @@
 import { watchOrderAlertTaps } from './services/orderAlerts';
+import { startPromotionPush } from './services/promotionPush';
 import { Capacitor } from '@capacitor/core';
 import { StoreHeader } from './components/StoreHeader';
 import { SupportChat } from './components/SupportChat';
@@ -805,7 +806,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
           <Route path="/admin/chat" element={!Capacitor.isNativePlatform() && profile.role === 'ADMIN' ? <>
             <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)}
               onLanguageChange={handleLanguageChange} onLogout={handleLogout} />
-            <SupportChat admin actorId={profile.id} language={language} token={session.accessToken} request={(path, init) =>
+            <SupportChat key={location.search} admin actorId={profile.id} language={language} token={session.accessToken} request={(path, init) =>
               fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
                 language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
           </> : <Navigate to="/" replace />} />
@@ -1145,6 +1146,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
 
 export default function App() {
   const [language, setLanguage] = useState<Language>(() => readStoredLanguage());
+  useEffect(() => startPromotionPush(language), [language]);
 
   useEffect(() => {
     document.documentElement.lang = language;

@@ -45,6 +45,7 @@ export function AdminAdvertisementHistoryDrawer({
   const seqRef = useRef(0);
 
   const [entries, setEntries] = useState<AdminAdvertisementHistoryEntry[]>([]);
+  const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(DEFAULT_HISTORY_PAGE_SIZE);
   const [totalElements, setTotalElements] = useState(0);
@@ -60,9 +61,13 @@ export function AdminAdvertisementHistoryDrawer({
 
       const seq = ++seqRef.current;
       setLoading(true);
+      setPushStatus(null);
       setErrorMessage(null);
 
       try {
+        void adminAdvertisementApi.latestPushStatus(token, adId, language).then(status => {
+          if (seq === seqRef.current) setPushStatus(status);
+        }).catch(() => {});
         const res = await adminAdvertisementApi.getHistory(
           token,
           adId,
@@ -152,6 +157,14 @@ export function AdminAdvertisementHistoryDrawer({
         }
       >
         <div className="space-y-4">
+          {pushStatus && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900">
+            {({
+              QUEUED: language === 'ru' ? 'Push в очереди' : 'Bildirishnoma navbatda',
+              ACCEPTED: language === 'ru' ? 'Firebase принял уведомление' : 'Firebase bildirishnomani qabul qildi',
+              FAILED: language === 'ru' ? 'Ошибка отправки' : 'Yuborishda xato',
+              CANCELLED: language === 'ru' ? 'Отправка отменена' : 'Yuborish bekor qilindi',
+            } as Record<string, string>)[pushStatus] ?? pushStatus}
+          </p>}
           <p className="text-xs sm:text-sm text-slate-600">{th.subtitle}</p>
 
           {errorMessage && (
