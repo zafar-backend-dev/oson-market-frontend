@@ -351,6 +351,9 @@ export function CatalogPage({
   const [authModalProduct, setAuthModalProduct] = useState<CatalogProduct | null>(null);
   const [variantModalProduct, setVariantModalProduct] = useState<CatalogProduct | null>(null);
 
+  const openedCategoryRef = useRef<string | null>(null);
+  const categoryNavRef = useRef<HTMLDivElement>(null);
+  const [visibleCategoryId, setVisibleCategoryId] = useState<string | null>(null);
   const selectedCategoryParam = searchParams.get('category');
   const selectedUncategorized = searchParams.get('uncategorized') === '1';
 
@@ -448,7 +451,10 @@ export function CatalogPage({
   }, [isAuthenticated]);
 
   const activeCategory: CatalogCategoryNode | null = useMemo(() => {
-    if (!selectedCategoryParam) return null;
+    if (visibleCategoryId === 'uncategorized' || (!visibleCategoryId && selectedUncategorized)) return null;
+    const defaultCategory = searchQuery.trim() ? null : nonEmptyRootCategories[0] ?? null;
+    if (visibleCategoryId) return nonEmptyCategoryById[visibleCategoryId] ?? defaultCategory;
+    if (!selectedCategoryParam) return defaultCategory;
     if (nonEmptyCategoryById[selectedCategoryParam]) {
       return nonEmptyCategoryById[selectedCategoryParam];
     }
@@ -465,9 +471,9 @@ export function CatalogPage({
     return (
       Object.values(index.categoryById).find(
         (cat) => cat.slug.toLowerCase() === lower || cat.id.toLowerCase() === lower,
-      ) ?? null
+      ) ?? defaultCategory
     );
-  }, [index.categoryById, nonEmptyCategoryById, selectedCategoryParam]);
+  }, [index.categoryById, nonEmptyCategoryById, nonEmptyRootCategories, searchQuery, selectedCategoryParam, selectedUncategorized, visibleCategoryId]);
 
   const activeCategoryPath = useMemo(
     () =>
@@ -496,20 +502,7 @@ export function CatalogPage({
   }, [activeCategory, activeCategoryPath, nonEmptyCategoryById]);
 
   const filteredProducts = useMemo(() => {
-    let pool = index.products;
-
-    if (selectedUncategorized) {
-      const uncatSet = new Set(index.uncategorizedProductIds);
-      pool = pool.filter((entry) => uncatSet.has(entry.product.id));
-    } else if (activeCategory) {
-      const allowedCatIds = new Set(
-        index.descendantIdsByCategoryId[activeCategory.id] ?? [activeCategory.id],
-      );
-      pool = pool.filter((entry) =>
-        entry.categoryIds.some((catId) => allowedCatIds.has(catId)),
-      );
-    }
-
+    const pool = index.products;
     const q = searchQuery.trim().toLowerCase();
     if (!q) return pool;
 
@@ -522,16 +515,94 @@ export function CatalogPage({
       if (product.variants.some((variant) => variant.sku.toLowerCase().includes(q))) return true;
       return false;
     });
-  }, [
-    activeCategory,
-    index.descendantIdsByCategoryId,
-    index.products,
-    index.uncategorizedProductIds,
-    searchQuery,
-    selectedUncategorized,
-  ]);
+  }, [index.products, searchQuery]);
+
+  const productSections = useMemo(() => {
+    const productsByCategory = new Map<string, typeof filteredProducts>();
+    for (const entry of filteredProducts) {
+      for (const id of new Set(entry.categoryIds.length ? entry.categoryIds : ['uncategorized'])) {
+        const entries = productsByCategory.get(id) ?? [];
+        entries.push(entry);
+        productsByCategory.set(id, entries);
+      }
+    }
+
+    const sections: { id: string; title: string; products: typeof filteredProducts }[] = [];
+    const visit = (category: CatalogCategoryNode) => {
+      const products = productsByCategory.get(category.id);
+      if (products?.length) sections.push({ id: category.id, title: category.name || category.slug, products });
+      category.children.forEach(visit);
+    };
+    nonEmptyRootCategories.forEach(visit);
+    const uncategorized = productsByCategory.get('uncategorized');
+    if (uncategorized?.length) sections.push({ id: 'uncategorized', title: tc.uncategorizedLabel, products: uncategorized });
+    return sections;
+  }, [filteredProducts, nonEmptyRootCategories, tc.uncategorizedLabel]);
+
+  const scrollToCategory = useCallback((id: string) => {
+    const categoryId = index.categoryById[id]?.id
+      ?? Object.values(index.categoryById).find(({ slug }) => slug === id)?.id
+      ?? id;
+    const categoryIds = new Set(index.descendantIdsByCategoryId[categoryId] ?? [categoryId]);
+    const targetSection = productSections.find((section) => categoryIds.has(section.id));
+    const target = targetSection && document.getElementById(`catalog-section-${targetSection.id}`);
+    const nav = categoryNavRef.current;
+    if (!target || !nav) return false;
+    const header = nav.closest('main')?.previousElementSibling;
+    const offset = (header?.getBoundingClientRect().height ?? 0) + nav.offsetHeight + 12;
+    window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - offset });
+    return true;
+  }, [index.categoryById, index.descendantIdsByCategoryId, productSections]);
+
+  useEffect(() => {
+    const nav = categoryNavRef.current;
+    const header = nav?.closest('main')?.previousElementSibling;
+    if (!nav || !header) return;
+    const update = () => { nav.style.top = `${header.getBoundingClientRect().height}px`; };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const requestedCategory = selectedUncategorized ? 'uncategorized' : selectedCategoryParam;
+    if (!requestedCategory) openedCategoryRef.current = null;
+    else if (openedCategoryRef.current !== requestedCategory && scrollToCategory(requestedCategory)) {
+      openedCategoryRef.current = requestedCategory;
+    }
+  }, [scrollToCategory, selectedCategoryParam, selectedUncategorized]);
+
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const navBottom = categoryNavRef.current?.getBoundingClientRect().bottom ?? 0;
+        let current = productSections[0]?.id ?? null;
+        for (const section of productSections) {
+          const element = document.getElementById(`catalog-section-${section.id}`);
+          if (!element || element.getBoundingClientRect().top > navBottom + 20) break;
+          current = section.id;
+        }
+        const page = document.scrollingElement;
+        if (page && page.scrollTop > 0 && page.scrollHeight - page.scrollTop - page.clientHeight < 4) {
+          current = productSections.at(-1)?.id ?? current;
+        }
+        setVisibleCategoryId(current);
+      });
+    };
+    window.addEventListener('scroll', update, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.cancelAnimationFrame(frame);
+    };
+  }, [productSections]);
 
   const handleSelectCategory = (categoryId: string | null) => {
+    setVisibleCategoryId(categoryId);
+    if (categoryId && openedCategoryRef.current === categoryId) scrollToCategory(categoryId);
     const next = new URLSearchParams(searchParams);
     next.delete('uncategorized');
     if (categoryId) {
@@ -543,6 +614,8 @@ export function CatalogPage({
   };
 
   const handleSelectUncategorized = () => {
+    setVisibleCategoryId('uncategorized');
+    if (openedCategoryRef.current === 'uncategorized') scrollToCategory('uncategorized');
     const next = new URLSearchParams(searchParams);
     next.delete('category');
     next.set('uncategorized', '1');
@@ -550,6 +623,7 @@ export function CatalogPage({
   };
 
   const handleClearFilters = () => {
+    setVisibleCategoryId(null);
     setSearchQuery('');
     const next = new URLSearchParams(searchParams);
     next.delete('category');
@@ -583,7 +657,7 @@ export function CatalogPage({
   };
 
   const hasActiveFilters = Boolean(
-    activeCategory || selectedUncategorized || searchQuery.trim().length > 0,
+    selectedCategoryParam || selectedUncategorized || searchQuery.trim().length > 0,
   );
   const profileComplete = profile ? isProfileComplete(profile) : false;
 
@@ -623,7 +697,7 @@ export function CatalogPage({
               size="large"
               allowClear
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setVisibleCategoryId(null); setSearchQuery(e.target.value); }}
               prefix={<Search className="w-4 h-4 text-slate-400 mr-1" />}
               placeholder={tc.searchPlaceholder}
               className="w-full"
@@ -649,19 +723,20 @@ export function CatalogPage({
         </section>
 
         {/* Non-Empty Category Navigation Bar */}
-        <CatalogCategoryBar
-          nonEmptyRootCategories={nonEmptyRootCategories}
-          categoryCounts={categoryCounts}
-          totalProductsCount={index.products.length}
-          uncategorizedCount={index.uncategorizedProductIds.length}
-          activeCategory={activeCategory}
-          activeCategoryPath={activeCategoryPath}
-          visibleSubcategories={visibleSubcategories}
-          selectedUncategorized={selectedUncategorized}
-          language={language}
-          onSelectCategory={handleSelectCategory}
-          onSelectUncategorized={handleSelectUncategorized}
-        />
+        <div ref={categoryNavRef} className="sticky z-20">
+          <CatalogCategoryBar
+            nonEmptyRootCategories={nonEmptyRootCategories}
+            categoryCounts={categoryCounts}
+            uncategorizedCount={index.uncategorizedProductIds.length}
+            activeCategory={activeCategory}
+            activeCategoryPath={activeCategoryPath}
+            visibleSubcategories={visibleSubcategories}
+            selectedUncategorized={visibleCategoryId ? visibleCategoryId === 'uncategorized' : selectedUncategorized}
+            language={language}
+            onSelectCategory={handleSelectCategory}
+            onSelectUncategorized={handleSelectUncategorized}
+          />
+        </div>
 
         {/* Error Banner with Retry */}
         {errorMessage && (
@@ -716,7 +791,7 @@ export function CatalogPage({
               </Button>
             </Empty>
           </section>
-        ) : !errorMessage && filteredProducts.length === 0 ? (
+        ) : !errorMessage && productSections.length === 0 ? (
           <section className="bg-white border border-[#e6e4dd] rounded-xl p-8 sm:p-10">
             <Empty
               description={
@@ -739,46 +814,31 @@ export function CatalogPage({
             </Empty>
           </section>
         ) : !errorMessage ? (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs sm:text-sm text-slate-600 tabular-nums">
-                {activeCategory ? (
-                  <span className="font-semibold text-slate-900">
-                    {activeCategory.name || activeCategory.slug}
+          <div className="space-y-6">
+            {productSections.map(({ id, title, products }) => (
+              <section key={id} id={`catalog-section-${id}`} className="space-y-3">
+                <h2 className="flex items-baseline gap-2 text-lg font-semibold text-slate-900">
+                  {title}
+                  <span className="text-xs font-normal text-slate-500">
+                    {products.length} {tc.productsCountSuffix}
                   </span>
-                ) : selectedUncategorized ? (
-                  <span className="font-semibold text-slate-900">{tc.uncategorizedLabel}</span>
-                ) : (
-                  <span className="font-semibold text-slate-900">{tc.allCategories}</span>
-                )}{' '}
-                · {filteredProducts.length} {tc.productsCountSuffix}
-              </div>
-
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className="text-xs font-medium text-[#16a34a] hover:text-[#15803d] cursor-pointer whitespace-nowrap"
-                >
-                  {tc.clearFilters}
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 min-[350px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 min-[350px]:gap-3 sm:gap-4 lg:gap-5">
-              {filteredProducts.map(({ product, categoryNames }) => (
-                <CatalogProductCard
-                  key={product.id}
-                  product={product}
-                  categoryNames={categoryNames}
-                  language={language}
-                  onRequireAuth={handleRequireAuthFromCard}
-                  onSocialError={handleSocialError}
-                  onOpenVariantPicker={setVariantModalProduct}
-                />
-              ))}
-            </div>
-          </section>
+                </h2>
+                <div className="grid grid-cols-1 min-[350px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 min-[350px]:gap-3 sm:gap-4 lg:gap-5">
+                  {products.map(({ product, categoryNames }) => (
+                    <CatalogProductCard
+                      key={product.id}
+                      product={product}
+                      categoryNames={categoryNames}
+                      language={language}
+                      onRequireAuth={handleRequireAuthFromCard}
+                      onSocialError={handleSocialError}
+                      onOpenVariantPicker={setVariantModalProduct}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         ) : null}
       </main>
 

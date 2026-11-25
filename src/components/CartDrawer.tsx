@@ -1,3 +1,4 @@
+import { BranchDirections } from './BranchDirections';
 import { getCurrentLocation, locationErrorMessage, supportsLocation } from '../services/deviceLocation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -1272,6 +1273,10 @@ export function CartDrawer({
                       );
                     })}
                   </div>
+                )}
+
+                {fulfillmentMethod === 'PICKUP' && selectedBranch && (
+                  <BranchDirections key={selectedBranch.id} branch={selectedBranch} language={language} />
                 )}
 
                 {branchValidationError && (

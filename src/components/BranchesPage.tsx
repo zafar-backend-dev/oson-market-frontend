@@ -1,3 +1,4 @@
+import { BranchDirections } from './BranchDirections';
 import { getCurrentLocation, locationErrorMessage, supportsLocation } from '../services/deviceLocation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Empty, Skeleton } from 'antd';
@@ -444,6 +445,8 @@ export function BranchesPage({
                       )}
                     </div>
                   </div>
+
+                  <BranchDirections key={branch.id} branch={branch} language={language} />
 
                   {/* Distance Footer */}
                   <div className="pt-3 border-t border-[#f2f0ea] flex items-center justify-between gap-2 text-xs">

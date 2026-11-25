@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check, ChevronRight, FolderTree, LayoutGrid } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { Check, ChevronRight, FolderTree } from 'lucide-react';
 import { Modal } from 'antd';
 import { translations } from '../i18n/translations';
 import type { Language } from '../types/auth';
@@ -9,21 +9,19 @@ import { PublicCatalogImage } from './PublicCatalogImage';
 interface CatalogCategoryBarProps {
   nonEmptyRootCategories: CatalogCategoryNode[];
   categoryCounts: Record<string, number>;
-  totalProductsCount: number;
   uncategorizedCount: number;
   activeCategory: CatalogCategoryNode | null;
   activeCategoryPath: CatalogCategoryNode[];
   visibleSubcategories: CatalogCategoryNode[];
   selectedUncategorized: boolean;
   language: Language;
-  onSelectCategory: (categoryId: string | null) => void;
+  onSelectCategory: (categoryId: string) => void;
   onSelectUncategorized: () => void;
 }
 
 export function CatalogCategoryBar({
   nonEmptyRootCategories,
   categoryCounts,
-  totalProductsCount,
   uncategorizedCount,
   activeCategory,
   activeCategoryPath,
@@ -36,7 +34,28 @@ export function CatalogCategoryBar({
   const tc = translations[language].catalog;
   const [allModalOpen, setAllModalOpen] = useState(false);
 
-  const handleModalSelectCategory = (categoryId: string | null) => {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const selectedRootId = activeCategoryPath[0]?.id ?? activeCategory?.id;
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    const selected = row?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+    if (!row || !selected) return;
+
+    const centerSelected = () => {
+      const tile = selected.getBoundingClientRect();
+      row.scrollLeft += tile.left + tile.width / 2
+        - row.getBoundingClientRect().left - row.clientWidth / 2;
+    };
+
+    centerSelected();
+    const observer = new ResizeObserver(centerSelected);
+    observer.observe(row);
+    observer.observe(selected);
+    return () => observer.disconnect();
+  }, [selectedRootId, nonEmptyRootCategories]);
+
+  const handleModalSelectCategory = (categoryId: string) => {
     onSelectCategory(categoryId);
     setAllModalOpen(false);
   };
@@ -75,8 +94,8 @@ export function CatalogCategoryBar({
                 url={node.imageUrl}
                 alt={node.name || node.slug}
                 fallbackVariant="category"
-                className="w-7 h-7 rounded-md overflow-hidden bg-[#faf9f5] border border-[#e6e4dd] shrink-0 flex items-center justify-center"
-                imgClassName="size-full rounded-[inherit] object-contain"
+                className="size-7 shrink-0 overflow-hidden rounded-lg bg-white"
+                imgClassName="block size-full rounded-[inherit] object-cover"
               />
               <span className="text-sm truncate">{node.name || node.slug}</span>
             </div>
@@ -100,49 +119,39 @@ export function CatalogCategoryBar({
       aria-label={tc.categoryLabel}
       className="bg-white border border-[#e6e4dd] rounded-xl p-2.5 sm:p-3.5 space-y-2.5"
     >
-      <div className="oson-scrollbar-none flex snap-x items-start gap-3 overflow-x-auto px-1 py-1 sm:gap-4 lg:flex-wrap lg:overflow-visible">
-        <button
-          type="button"
-          onClick={() => onSelectCategory(null)}
-          aria-pressed={!activeCategory && !selectedUncategorized}
-          className="group flex w-[76px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-lg text-center focus-visible:outline-2 focus-visible:outline-green-600 sm:w-[92px]"
-        >
-          <span className={`grid size-[72px] place-items-center rounded-2xl border-2 sm:size-[86px] ${
-            !activeCategory && !selectedUncategorized
-              ? 'border-green-600 bg-green-100 text-green-800'
-              : 'border-green-200 bg-green-50 text-green-700 group-hover:border-green-500'
-          }`}>
-            <LayoutGrid className="size-7" aria-hidden="true" />
-          </span>
-          <span className="line-clamp-2 text-xs font-semibold leading-tight text-slate-800 sm:text-sm">
-            {tc.allCategories}
-          </span>
-        </button>
+      <div
+        ref={rowRef}
+        className="oson-scrollbar-none flex items-center gap-2 overflow-x-auto px-1 py-1"
+      >
         {nonEmptyRootCategories.map((category) => {
-          const selected = activeCategoryPath.some((node) => node.id === category.id)
-            || activeCategory?.id === category.id;
+          const selected = selectedRootId === category.id;
           return (
             <button
               key={category.id}
               type="button"
               aria-pressed={selected}
               onClick={() => onSelectCategory(category.id)}
-              className="group flex w-[76px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-lg text-center focus-visible:outline-2 focus-visible:outline-green-600 sm:w-[92px]"
+              className={`flex min-h-12 max-w-[min(15rem,78%)] shrink-0 items-center gap-2.5 rounded-2xl border py-1.5 pl-1.5 pr-3.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-green-600 ${
+                selected
+                  ? 'border-green-300 bg-green-50 text-green-950'
+                  : 'border-[#e6e4dd] bg-white text-slate-700 hover:border-green-300'
+              }`}
             >
               <PublicCatalogImage
                 url={category.imageUrl}
                 alt=""
                 fallbackVariant="category"
-                className={`grid size-[72px] place-items-center overflow-hidden rounded-2xl border-2 p-1.5 sm:size-[86px] ${
-                  selected ? 'border-green-600 bg-green-100' : 'border-amber-200 bg-amber-50 group-hover:border-green-500'
-                }`}
-                imgClassName="size-full rounded-xl object-contain"
+                className="size-9 shrink-0 overflow-hidden rounded-xl bg-white sm:size-10"
+                imgClassName="block size-full rounded-[inherit] object-cover"
               />
-              <span className={`line-clamp-2 text-xs font-semibold leading-tight sm:text-sm ${
-                selected ? 'text-green-800' : 'text-slate-800'
-              }`}>
+              <span className="line-clamp-2 text-sm font-semibold leading-tight">
                 {category.name || category.slug}
               </span>
+              {selected && (
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-green-700 text-white">
+                  <Check className="size-3" aria-hidden="true" />
+                </span>
+              )}
             </button>
           );
         })}
@@ -150,40 +159,29 @@ export function CatalogCategoryBar({
           <button
             type="button"
             onClick={() => setAllModalOpen(true)}
+            aria-label={tc.allCategoriesModalTitle}
             aria-haspopup="dialog"
             aria-expanded={allModalOpen}
-            className="group flex w-[76px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-lg text-center focus-visible:outline-2 focus-visible:outline-green-600 sm:w-[92px]"
+            className="grid size-12 shrink-0 place-items-center rounded-2xl border border-[#e6e4dd] text-slate-600 transition-colors hover:border-green-300 hover:text-green-800 focus-visible:outline-2 focus-visible:outline-green-600"
           >
-            <span className="grid size-[72px] place-items-center rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-700 group-hover:border-green-500 sm:size-[86px]">
-              <FolderTree className="size-7" aria-hidden="true" />
-            </span>
-            <span className="line-clamp-2 text-xs font-semibold leading-tight text-slate-800 sm:text-sm">
-              {tc.allCategoriesModalTitle}
-            </span>
+            <FolderTree className="size-5" aria-hidden="true" />
           </button>
         )}
       </div>
 
       {/* Active Category Breadcrumb & Non-Empty Subcategories */}
-      {(activeCategoryPath.length > 0 || visibleSubcategories.length > 0) && (
+      {(activeCategoryPath.length > 1 || visibleSubcategories.length > 0) && (
         <div className="space-y-2 border-t border-[#f2f0ea] pt-2">
-          {activeCategoryPath.length > 0 && (
+          {activeCategoryPath.length > 1 && (
             <nav
               aria-label={tc.categoryLabel}
               className="flex flex-wrap items-center gap-1 text-xs text-slate-500"
             >
-              <button
-                type="button"
-                onClick={() => onSelectCategory(null)}
-                className="hover:text-slate-900 transition-colors cursor-pointer"
-              >
-                {tc.allCategories}
-              </button>
               {activeCategoryPath.map((node, idx) => {
                 const isLast = idx === activeCategoryPath.length - 1;
                 return (
                   <span key={node.id} className="inline-flex items-center gap-1">
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                     {isLast ? (
                       <span className="font-semibold text-slate-900">
                         {node.name || node.slug}
@@ -226,8 +224,8 @@ export function CatalogCategoryBar({
                       url={child.imageUrl}
                       alt={child.name || child.slug}
                       fallbackVariant="category"
-                      className="w-4 h-4 rounded overflow-hidden bg-white border border-[#e6e4dd] shrink-0 flex items-center justify-center"
-                      imgClassName="size-full rounded-[inherit] object-contain"
+                      className="size-4 shrink-0 overflow-hidden rounded bg-white"
+                      imgClassName="block size-full rounded-[inherit] object-cover"
                     />
                     <span>{child.name || child.slug}</span>
                     <span className="opacity-75 tabular-nums">({count})</span>
@@ -253,19 +251,6 @@ export function CatalogCategoryBar({
         }
       >
         <div className="space-y-2 pt-2 max-h-[68vh] overflow-y-auto pr-1">
-          <button
-            type="button"
-            onClick={() => handleModalSelectCategory(null)}
-            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
-              !activeCategory && !selectedUncategorized
-                ? 'bg-[#16a34a] border-[#16a34a] text-white font-semibold'
-                : 'bg-[#faf9f5] border-[#e6e4dd] text-slate-800 hover:border-[#86efac]'
-            }`}
-          >
-            <span className="text-sm">{tc.allCategories}</span>
-            <span className="text-xs opacity-85 tabular-nums">{totalProductsCount}</span>
-          </button>
-
           {renderTreeNodes(nonEmptyRootCategories)}
 
           {uncategorizedCount > 0 && (
