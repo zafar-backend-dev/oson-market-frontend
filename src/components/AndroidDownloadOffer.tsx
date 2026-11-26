@@ -1,5 +1,5 @@
+import { canOfferAndroidDownload } from '../utils/androidDownload';
 import { useState } from 'react';
-import { Capacitor } from '@capacitor/core';
 import { Modal } from 'antd';
 import { Download, Smartphone } from 'lucide-react';
 import { ANDROID_APK_URL } from '../constants';
@@ -25,10 +25,10 @@ export function AndroidDownloadOffer({ guest, language }: { guest: boolean; lang
     }
   }
 
-  if (!guest || !ANDROID_APK_URL || Capacitor.isNativePlatform() || dismissed) return null;
+  if (!guest || !ANDROID_APK_URL || !canOfferAndroidDownload() || dismissed) return null;
   const russian = language === 'ru';
   return <Modal open centered width={420} footer={null} onCancel={dismiss}
-    title={russian ? 'Скачайте приложение Oson Market' : 'Oson Market ilovasini yuklab oling'}>
+    title={russian ? 'Oson Market для Android' : 'Android uchun Oson Market ilovasi'}>
     <div className="mt-4 flex items-center gap-4">
       <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-green-50 text-green-700">
         <Smartphone size={26} aria-hidden="true" />

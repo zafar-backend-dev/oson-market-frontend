@@ -1,3 +1,4 @@
+import { canOfferAndroidDownload } from '../utils/androidDownload';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { Button, Drawer } from 'antd';
 import { Capacitor } from '@capacitor/core';
@@ -463,13 +464,6 @@ export function StoreHeader({
             icon: <ClipboardList className="w-4 h-4 shrink-0" />,
             active: isCustomerOrdersRoute,
           },
-          ...(!isAdmin && Capacitor.isNativePlatform() ? [{
-            key: 'support-chat',
-            path: '/chat',
-            label: language === 'ru' ? 'Чат с администратором' : 'Admin bilan chat',
-            icon: <MessageCircle className="w-4 h-4 shrink-0" />,
-            active: cleanPath === '/chat',
-          }] : []),
           ...(isAdmin
             ? []
             : [
@@ -499,7 +493,18 @@ export function StoreHeader({
           },
         ];
 
-  if (ANDROID_APK_URL && !Capacitor.isNativePlatform()) {
+  const chatLabel = language === 'ru' ? 'Чат с администратором' : 'Admin bilan chat';
+  if (profile && !isAdmin) {
+    primaryNavItems.splice(1, 0, {
+      key: 'support-chat',
+      path: '/chat',
+      label: chatLabel,
+      icon: <MessageCircle className="size-4 shrink-0" />,
+      active: cleanPath === '/chat',
+    });
+  }
+
+  if (ANDROID_APK_URL && canOfferAndroidDownload()) {
     primaryNavItems.splice(1, 0, {
       key: 'android-download',
       path: ANDROID_APK_URL,
@@ -667,6 +672,14 @@ export function StoreHeader({
 
         {/* Zone 3: Right Actions — Savat, Notifications, Language, Account Actions & Mobile Hamburger */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 relative z-10">
+          {profile && !isAdmin && Capacitor.isNativePlatform() && (
+            <button type="button" onClick={() => handleNavigate('/chat')} aria-label={chatLabel}
+              title={chatLabel} aria-current={cleanPath === '/chat' ? 'page' : undefined}
+              className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 px-2 text-green-800 focus-visible:outline-2 focus-visible:outline-green-600">
+              <MessageCircle className="size-5" aria-hidden="true" />
+              <span className="hidden sm:inline text-sm font-semibold">{chatLabel}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => openCartDrawer()}

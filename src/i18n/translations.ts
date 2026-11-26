@@ -2488,11 +2488,11 @@ export const translations: Record<Language, TranslationSchema> = {
       },
     },
     catalog: {
-      navCatalog: 'Katalog',
+      navCatalog: 'Mahsulotlar',
       navBranches: 'Filiallar',
       navAbout: 'Biz haqimizda',
       navSignIn: 'Kirish',
-      heroHeading: 'Oson Market mahsulotlar katalogi',
+      heroHeading: 'Oson Market mahsulotlari',
       heroSubtitle:
         'Kategoriyalar bo‘yicha qidiring, texnik xususiyatlar va variantlarni solishtiring hamda kerakli mahsulotni tanlang.',
       searchPlaceholder: 'Mahsulot nomi, brend yoki SKU bo‘yicha qidirish...',
@@ -2519,7 +2519,7 @@ export const translations: Record<Language, TranslationSchema> = {
       productNotFoundTitle: 'Mahsulot topilmadi',
       productNotFoundSubtitle:
         'So‘ralgan mahsulot katalogda mavjud emas yoki nashrdan olingan.',
-      backToCatalog: 'Katalogga qaytish',
+      backToCatalog: 'Mahsulotlarga qaytish',
       brandLabel: 'Brend',
       categoryLabel: 'Kategoriya',
       productKindLabel: 'Mahsulot turi',
@@ -4425,11 +4425,11 @@ export const translations: Record<Language, TranslationSchema> = {
       },
     },
     catalog: {
-      navCatalog: 'Каталог',
+      navCatalog: 'Товары',
       navBranches: 'Филиалы',
       navAbout: 'О нас',
       navSignIn: 'Войти',
-      heroHeading: 'Каталог товаров Oson Market',
+      heroHeading: 'Товары Oson Market',
       heroSubtitle:
         'Ищите по категориям, сравнивайте характеристики и варианты и выбирайте нужный товар.',
       searchPlaceholder: 'Поиск по названию, бренду или SKU...',
@@ -4456,7 +4456,7 @@ export const translations: Record<Language, TranslationSchema> = {
       productNotFoundTitle: 'Товар не найден',
       productNotFoundSubtitle:
         'Запрошенный товар отсутствует в каталоге или снят с публикации.',
-      backToCatalog: 'Вернуться в каталог',
+      backToCatalog: 'Вернуться к товарам',
       brandLabel: 'Бренд',
       categoryLabel: 'Категория',
       productKindLabel: 'Тип товара',

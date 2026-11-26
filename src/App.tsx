@@ -797,8 +797,12 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               )
             }
           />
-          <Route path="/chat" element={Capacitor.isNativePlatform() && profile.role !== 'ADMIN' ? <>
-            <SupportChat onBack={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/', { replace: true })}
+          <Route path="/chat" element={profile.role !== 'ADMIN' ? <>
+            {!Capacitor.isNativePlatform() && <StoreHeader language={language} profile={profile}
+              profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} />}
+            <SupportChat onBack={Capacitor.isNativePlatform()
+              ? () => window.history.state?.idx > 0 ? navigate(-1) : navigate('/', { replace: true })
+              : undefined}
               actorId={profile.id} language={language} token={session.accessToken} request={(path, init) =>
               fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
                 language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
