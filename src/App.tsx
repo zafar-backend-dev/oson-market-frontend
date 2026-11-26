@@ -1,3 +1,4 @@
+import { AdminAndroidReleasePage } from './components/AdminAndroidReleasePage';
 import { AndroidUpdateNotice } from './components/AndroidUpdateNotice';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ANDROID_APK_URL } from './constants';
@@ -585,6 +586,8 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
     navigate('/auth/sign-in', { replace: true });
   }, [language, navigate]);
 
+  const requestAndroidRelease = useCallback((method: 'GET' | 'PUT' | 'POST', path: string, body?: string) =>
+    fetchWithSessionRefresh(path, { method, body, language, accessToken: session?.accessToken, credentials: 'omit', headers: body ? { 'Content-Type': 'application/json' } : undefined }), [language, session?.accessToken]);
   const isAuthenticated = Boolean(session && profile);
   const showBottomNav = Capacitor.isNativePlatform() && profile?.role !== 'ADMIN'
     && !location.pathname.startsWith('/auth/');
@@ -815,6 +818,10 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
                 language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
           </> : <Navigate to="/" replace />} />}
+          <Route path="/admin/android-release" element={profile.role === 'ADMIN' ? <>
+            <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} />
+            <AdminAndroidReleasePage language={language} request={requestAndroidRelease} />
+          </> : <Navigate to="/" replace />} />
           <Route path="/admin/chat" element={!Capacitor.isNativePlatform() && profile.role === 'ADMIN' ? <>
             <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)}
               onLanguageChange={handleLanguageChange} onLogout={handleLogout} />

@@ -588,6 +588,11 @@ export function StoreHeader({
           active: cleanPath === '/admin/site-logo',
         },
         {
+          key: 'admin-android-release', path: '/admin/android-release',
+          label: language === 'ru' ? 'Обновления Android' : 'Android yangilanishlari',
+          icon: <Download className="size-4 shrink-0" />, active: cleanPath === '/admin/android-release',
+        },
+        {
           key: 'admin-about',
           path: '/admin/about',
           label: t.workspace.menuSiteAbout,

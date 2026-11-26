@@ -41,7 +41,7 @@ export function AndroidUpdateNotice({ language }: { language: Language }) {
           || !Number.isSafeInteger(release.minimumVersionCode) || release.minimumVersionCode < 0
           || release.minimumVersionCode > release.versionCode) return;
         if (active) {
-          setUpdate(release.versionCode > installed
+          setUpdate(release.versionCode !== installed
             ? { ...release, required: release.minimumVersionCode > installed }
             : null);
         }
@@ -62,7 +62,9 @@ export function AndroidUpdateNotice({ language }: { language: Language }) {
       }),
     ];
     void check();
+    const refresh = window.setInterval(() => { if (!document.hidden) void check(); }, 60_000);
     return () => {
+      window.clearInterval(refresh);
       active = false;
       abort.abort();
       for (const listener of listeners) void listener.then(handle => handle.remove()).catch(() => {});
