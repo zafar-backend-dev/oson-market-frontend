@@ -424,7 +424,6 @@ export function DashboardWorkspace({
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept="image/*,.heic,.heif,.tif,.tiff"
                           onChange={handleAvatarFileSelected}
                           className="hidden"
                         />

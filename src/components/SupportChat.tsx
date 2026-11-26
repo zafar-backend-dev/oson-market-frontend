@@ -2,10 +2,10 @@ import { ChatEmojiPicker } from './ChatEmojiPicker';
 import { ChatImageEditor } from './ChatImageEditor';
 import { decodeChatImage } from '../services/chatImage';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { ArrowDown, ImagePlus, MessageCircle, Mic, Play, Pencil, Reply, Send, Smile, Square, Trash2, X } from 'lucide-react';
-import { Drawer, Image as ImagePreview } from 'antd';
+import { ArrowDown, FolderOpen, ImagePlus, MessageCircle, Mic, Play, Pencil, Reply, Send, Smile, Square, Trash2, X } from 'lucide-react';
+import { Drawer, Image as ImagePreview, Popover } from 'antd';
 import { Browser } from '@capacitor/browser';
 import { ChatVoicePlayer, voiceTime } from './ChatVoicePlayer';
 import { API_BASE_URL } from '../constants';
@@ -383,9 +383,21 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
 
   const scrollOnChange = useRef(true);
   const input = useRef<HTMLInputElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
   const composer = useRef<HTMLTextAreaElement>(null);
   const emojiCursor = useRef<number | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+
+  function selectImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setError('');
+    setEmojiOpen(false);
+    setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
+    setEditingImage(true);
+  }
 
   function insertEmoji(emoji: string) {
     const field = composer.current;
@@ -1012,16 +1024,24 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
           </div>}
           {emojiOpen && !recording && !attachment && <ChatEmojiPicker language={language} onChoose={insertEmoji} />}
           {!recording && <div className="flex items-end gap-1.5 sm:gap-2">
-            <input type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.svg,.psd,.jxl,.jp2,.dng,.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.raw,.tga,.dds,.exr,.hdr,.qoi,.xcf,.j2k,.psb,.pnm,.pbm,.pgm,.ppm,.wmf,.emf,.sr2,.pef,.x3f" ref={input} hidden onChange={event => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              if (!file) return;
-              setError('');
-              setEmojiOpen(false);
-              setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
-              setEditingImage(true);
-            }} />
-            <button type="button" className={iconButton} disabled={sending || recording || requestingMic} onClick={() => input.current?.click()} aria-label={t.image}><ImagePlus size={19} /></button>
+            <input type="file" accept="image/*" ref={input} hidden onChange={selectImage} />
+            <input type="file" ref={fileInput} hidden onChange={selectImage} />
+            <Popover trigger="click" placement="topLeft" open={attachmentPickerOpen}
+              onOpenChange={setAttachmentPickerOpen} content={
+                <div className="grid min-w-40 gap-1">
+                  <button type="button" className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-left hover:bg-green-50"
+                    onClick={() => { setAttachmentPickerOpen(false); input.current?.click(); }}>
+                    <ImagePlus size={18} aria-hidden="true" />{language === 'ru' ? 'Галерея' : 'Galereya'}
+                  </button>
+                  <button type="button" className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-left hover:bg-green-50"
+                    onClick={() => { setAttachmentPickerOpen(false); fileInput.current?.click(); }}>
+                    <FolderOpen size={18} aria-hidden="true" />{language === 'ru' ? 'Файлы · все форматы' : 'Fayllar · barcha formatlar'}
+                  </button>
+                </div>
+              }>
+              <button type="button" className={iconButton} disabled={sending || recording || requestingMic}
+                aria-expanded={attachmentPickerOpen} aria-label={t.image}><ImagePlus size={19} /></button>
+            </Popover>
             <button type="button" className={iconButton} disabled={sending || requestingMic || !!attachment} onClick={() => void record()} aria-label={t.voice}>
               <Mic size={19} />
             </button>

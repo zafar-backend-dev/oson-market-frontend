@@ -1,27 +1,8 @@
+import { decodeChatImage } from '../services/chatImage';
 import { AVATAR_MAX_BYTES, AVATAR_MAX_DIMENSION } from './validation';
 
 export const AVATAR_MAX_SOURCE_MB = 25;
 export const AVATAR_MAX_SOURCE_BYTES = AVATAR_MAX_SOURCE_MB * 1024 * 1024;
-
-function loadImage(file: Blob): Promise<HTMLImageElement> {
-  const url = URL.createObjectURL(file);
-  const image = new Image();
-  return new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error('Cannot decode avatar'));
-    image.src = url;
-  }).then(() => image).finally(() => URL.revokeObjectURL(url));
-}
-
-async function decodeImage(file: File): Promise<HTMLImageElement> {
-  try {
-    return await loadImage(file);
-  } catch {
-    const { heicTo, isHeic } = await import('heic-to');
-    if (!await isHeic(file)) throw new Error('Cannot decode avatar');
-    return loadImage(await heicTo({ blob: file, type: 'image/jpeg', quality: 0.94 }));
-  }
-}
 
 function encode(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> {
   return new Promise(resolve => canvas.toBlob(resolve, type, quality));
@@ -30,10 +11,10 @@ function encode(canvas: HTMLCanvasElement, type: string, quality?: number): Prom
 export async function prepareAvatarFile(file: File): Promise<File> {
   let image: HTMLImageElement;
   try {
-    image = await decodeImage(file);
+    image = await decodeChatImage(file);
   } catch (error) {
-    // Some browsers lack a TIFF decoder. The server can decode small TIFF files directly.
-    if (file.size <= AVATAR_MAX_BYTES && (/\.tiff?$/i.test(file.name) || file.type === 'image/tiff')) {
+    // Try server-side decoding when the device cannot open the source format.
+    if (file.size <= AVATAR_MAX_BYTES) {
       return file;
     }
     throw error;
