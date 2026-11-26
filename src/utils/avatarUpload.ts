@@ -1,4 +1,4 @@
-import { decodeChatImage } from '../services/chatImage';
+import { copyChatImage, decodeChatImage } from '../services/chatImage';
 import { AVATAR_MAX_BYTES, AVATAR_MAX_DIMENSION } from './validation';
 
 export const AVATAR_MAX_SOURCE_MB = 25;
@@ -8,7 +8,8 @@ function encode(canvas: HTMLCanvasElement, type: string, quality?: number): Prom
   return new Promise(resolve => canvas.toBlob(resolve, type, quality));
 }
 
-export async function prepareAvatarFile(file: File): Promise<File> {
+export async function prepareAvatarFile(source: File): Promise<File> {
+  const file = await copyChatImage(source);
   let image: HTMLImageElement;
   try {
     image = await decodeChatImage(file);

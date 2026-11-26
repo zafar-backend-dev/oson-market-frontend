@@ -292,8 +292,8 @@ export function DashboardWorkspace({
   };
 
   const handleAvatarFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
 
     setAvatarError(null);
@@ -321,6 +321,7 @@ export function DashboardWorkspace({
         setAvatarError(t.validation.avatarReadError);
       }
     } finally {
+      input.value = '';
       setAvatarBusy(false);
     }
   };
