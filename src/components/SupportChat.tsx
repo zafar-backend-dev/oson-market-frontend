@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { ImagePlus, MessageCircle, Mic, Play, Reply, Send, Square, Trash2, X } from 'lucide-react';
+import { ArrowDown, ImagePlus, MessageCircle, Mic, Play, Reply, Send, Square, Trash2, X } from 'lucide-react';
 import { Drawer, Image as ImagePreview } from 'antd';
 import { Browser } from '@capacitor/browser';
 import { ChatVoicePlayer, voiceTime } from './ChatVoicePlayer';
@@ -175,7 +175,15 @@ function ChatImage({ file, name, className, zoom = false }: { file: Blob; name: 
   }, [failed, file, name]);
 
   if (!url) return null;
-  if (zoom) return <ImagePreview src={url} alt={name} className={className} onError={() => setFailed(true)} />;
+  if (zoom) return <ImagePreview src={url} alt={name} className={className}
+    preview={{ minScale: 1, maxScale: 4 }}
+    styles={{ popup: {
+      mask: { backgroundColor: 'rgba(9, 17, 25, 0.93)' },
+      close: { top: 'max(16px, env(safe-area-inset-top))', right: 16, borderRadius: '50%' },
+      footer: { paddingBottom: 'max(12px, env(safe-area-inset-bottom))' },
+      actions: { borderRadius: 24, paddingInline: 12 },
+    } }}
+    onError={() => setFailed(true)} />;
   return <img src={url} alt={name} className={className} onError={() => setFailed(true)} />;
 }
 
@@ -357,7 +365,25 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   }, [attachment]);
   const generation = useRef(0);
   const seen = useRef(0);
-  const bottom = useRef<HTMLDivElement>(null);
+  const scrollPanel = useRef<HTMLDivElement>(null);
+  const pinnedToLatest = useRef(true);
+  const [showLatest, setShowLatest] = useState(false);
+
+  function updateScrollPosition() {
+    const panel = scrollPanel.current;
+    if (!panel) return;
+    const nearBottom = panel.scrollHeight - panel.scrollTop - panel.clientHeight <= 72;
+    pinnedToLatest.current = nearBottom;
+    setShowLatest(!nearBottom);
+  }
+
+  function scrollToLatest(behavior: ScrollBehavior = 'instant') {
+    const panel = scrollPanel.current;
+    if (!panel) return;
+    panel.scrollTo({ top: panel.scrollHeight, behavior });
+    if (behavior !== 'smooth') updateScrollPosition();
+  }
+
   const scrollOnChange = useRef(true);
   const input = useRef<HTMLInputElement>(null);
 
@@ -384,6 +410,8 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
     setPeerActivities({});
     seen.current = 0;
     scrollOnChange.current = true;
+    pinnedToLatest.current = true;
+    setShowLatest(false);
     function connect() {
       const url = new URL(admin ? '/ws/admin/chat' : '/ws/mobile/chat', API_BASE_URL || location.origin);
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -441,7 +469,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
             const message = event.data as Message;
             if (admin) frame('CONVERSATIONS');
             if (admin && message.userId !== userId) break;
-            scrollOnChange.current = true;
+            scrollOnChange.current = message.senderAdmin === admin || pinnedToLatest.current;
             setMessages(current => current.some(item => item.id === message.id) ? current :
               [...current, message].sort((left, right) => left.id - right.id));
             break;
@@ -531,9 +559,24 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
     return () => window.clearInterval(timer);
   }, [recording, ready, userId]);
 
+  useLayoutEffect(() => {
+    if (messages.length && scrollOnChange.current) {
+      scrollToLatest();
+      scrollOnChange.current = false;
+    }
+  }, [messages]);
+
   useEffect(() => {
-    if (scrollOnChange.current) bottom.current?.scrollIntoView({ block: 'nearest' });
-    scrollOnChange.current = false;
+    const list = messageList.current;
+    if (!list) return;
+    const observer = new ResizeObserver(() => {
+      if (pinnedToLatest.current && !jumpToId) scrollToLatest();
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [admin, userId, jumpToId]);
+
+  useEffect(() => {
     function markRead() {
       if (!ready || document.visibilityState !== 'visible') return;
       const latest = messages.slice().reverse().find(message => message.senderAdmin !== admin && !message.readAt && !message.deleted);
@@ -816,8 +859,10 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
             </button>
           )}
         </header>
-        <div className={`overflow-y-auto overscroll-contain bg-slate-50 px-3 py-3 sm:px-5 ${fullScreen
-          ? 'min-h-0 flex-1' : 'h-[48dvh] min-h-48 sm:h-[54dvh]'}`}>
+        <div className={fullScreen ? 'relative min-h-0 flex-1' : 'relative'}>
+        <div ref={scrollPanel} onScroll={updateScrollPosition}
+          className={`overflow-y-auto overscroll-contain bg-[#f5f8f6] px-3 py-3 sm:px-5 ${fullScreen
+            ? 'h-full' : 'h-[48dvh] min-h-48 sm:h-[54dvh]'}`}>
           {older && <button onClick={() => frame('HISTORY', { requestId: 'older', beforeId: messages[0]?.id })}
             disabled={!ready || !!jumpToId} className="mx-auto mb-3 block min-h-11 rounded-full border border-slate-200 bg-white px-4 text-sm">{t.older}</button>}
           {loaded && messages.length === 0 && <p className="py-8 text-center text-sm text-slate-600">{t.empty}</p>}
@@ -827,7 +872,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
               const reactions = [message.userReaction, message.adminReaction].filter((emoji): emoji is string => !!emoji);
               const myReaction = admin ? message.adminReaction : message.userReaction;
               return <li key={message.id} data-message-id={message.id} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
-                <div className={`min-w-0 max-w-[88%] rounded-2xl px-3 py-2 transition-shadow sm:max-w-[75%] ${own ? 'bg-green-100' : 'border border-slate-200 bg-white'} ${onBack ? 'select-none' : ''} ${highlightedId === message.id ? 'ring-2 ring-green-600 ring-offset-2' : ''}`}
+                <div className={`min-w-0 max-w-[88%] rounded-[20px] px-3.5 py-2.5 shadow-sm transition-shadow sm:max-w-[75%] ${own ? 'rounded-br-lg bg-[#e0f5e8]' : 'rounded-bl-lg border border-[#e8eee9] bg-white'} ${onBack ? 'select-none' : ''} ${highlightedId === message.id ? 'ring-2 ring-green-600 ring-offset-2' : ''}`}
                   onPointerDown={event => {
                     if (!onBack || message.deleted || !event.isPrimary || event.button !== 0 ||
                         (event.target as Element).closest('button, a, audio, .ant-image')) return;
@@ -906,9 +951,17 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
               </li>;
             })}
           </ul>
-          <div ref={bottom} />
         </div>
-        <form onSubmit={send} className="shrink-0 space-y-2 border-t border-slate-200 p-3">
+        {showLatest && (
+          <button type="button"
+            aria-label={language === 'ru' ? 'К последнему сообщению' : 'Oxirgi xabarga o‘tish'}
+            onClick={() => scrollToLatest(window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth')}
+            className="absolute bottom-3 right-4 grid size-11 place-items-center rounded-full border border-green-100 bg-white text-green-800 shadow-md active:scale-95">
+            <ArrowDown size={20} aria-hidden="true" />
+          </button>
+        )}
+        </div>
+        <form onSubmit={send} className="shrink-0 space-y-2 border-t border-[#e8eee9] bg-white p-3">
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
           {replyToId && <div className="flex items-center gap-2 rounded-lg border-l-2 border-green-600 bg-green-50 px-3 py-1">
             <p className="min-w-0 flex-1 truncate text-sm">{quote(replyToId)}</p>
