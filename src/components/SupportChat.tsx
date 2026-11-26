@@ -1,7 +1,10 @@
+import { ChatEmojiPicker } from './ChatEmojiPicker';
+import { ChatImageEditor } from './ChatImageEditor';
+import { decodeChatImage } from '../services/chatImage';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { ArrowDown, ImagePlus, MessageCircle, Mic, Play, Reply, Send, Square, Trash2, X } from 'lucide-react';
+import { ArrowDown, ImagePlus, MessageCircle, Mic, Play, Pencil, Reply, Send, Smile, Square, Trash2, X } from 'lucide-react';
 import { Drawer, Image as ImagePreview } from 'antd';
 import { Browser } from '@capacitor/browser';
 import { ChatVoicePlayer, voiceTime } from './ChatVoicePlayer';
@@ -44,21 +47,8 @@ function readBase64(file: Blob): Promise<string> {
 }
 
 async function resizeChatImage(file: File): Promise<File | null> {
-  let url = URL.createObjectURL(file);
   try {
-    const image = new Image();
-    image.src = url;
-    try {
-      await image.decode();
-    } catch {
-      const { heicTo, isHeic } = await import('heic-to');
-      if (!await isHeic(file)) return null;
-      const converted = await heicTo({ blob: file, type: 'image/png' });
-      URL.revokeObjectURL(url);
-      url = URL.createObjectURL(converted);
-      image.src = url;
-      await image.decode();
-    }
+    const image = await decodeChatImage(file);
     const ratio = Math.min(1, 2560 / Math.max(image.naturalWidth, image.naturalHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
@@ -72,8 +62,6 @@ async function resizeChatImage(file: File): Promise<File | null> {
     return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.${extension}`, { type: blob.type });
   } catch {
     return null;
-  } finally {
-    URL.revokeObjectURL(url);
   }
 }
 
@@ -143,11 +131,13 @@ function ChatText({ text }: { text: string }) {
 function ChatImage({ file, name, className, zoom = false }: { file: Blob; name: string; className: string; zoom?: boolean }) {
   const [url, setUrl] = useState('');
   const [failed, setFailed] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     const original = URL.createObjectURL(file);
     setUrl(original);
     setFailed(false);
+    setUnavailable(false);
     return () => URL.revokeObjectURL(original);
   }, [file]);
 
@@ -158,14 +148,17 @@ function ChatImage({ file, name, className, zoom = false }: { file: Blob; name: 
     void (async () => {
       try {
         const { heicTo, isHeic } = await import('heic-to');
-        if (!active || !await isHeic(new File([file], name, { type: file.type }))) return;
+        if (!await isHeic(new File([file], name, { type: file.type }))) {
+          if (active) setUnavailable(true);
+          return;
+        }
         const image = await heicTo({ blob: file, type: 'image/png' });
         if (active) {
           converted = URL.createObjectURL(image);
           setUrl(converted);
         }
       } catch {
-        // The original remains available for download.
+        if (active) setUnavailable(true);
       }
     })();
     return () => {
@@ -174,8 +167,11 @@ function ChatImage({ file, name, className, zoom = false }: { file: Blob; name: 
     };
   }, [failed, file, name]);
 
+  if (unavailable) return <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
+    <ImagePlus size={18} aria-hidden="true" /><span className="break-all">{name}</span>
+  </div>;
   if (!url) return null;
-  if (zoom) return <ImagePreview src={url} alt={name} className={className}
+  if (zoom) return <ImagePreview classNames={{ root: 'block! w-full overflow-hidden rounded-xl' }} src={url} alt={name} className={className}
     preview={{ minScale: 1, maxScale: 4 }}
     styles={{ popup: {
       mask: { backgroundColor: 'rgba(9, 17, 25, 0.93)' },
@@ -262,17 +258,17 @@ function Media({ message, request, language }: Pick<Props, 'request' | 'language
     };
   }, [message.id, message.kind]);
 
-  return <div ref={preview} className={message.kind === 'IMAGE' ? 'min-h-16 min-w-24' : undefined}>
+  return <div ref={preview} className={message.kind === 'IMAGE' ? 'min-h-20 w-[min(64vw,19rem)]' : undefined}>
     {url ? <>
       {message.kind === 'VOICE' ? <ChatVoicePlayer url={url} language={language} autoPlay
         durationHint={Number(message.fileName?.match(/^voice-(\d+)\./)?.[1] ?? 0) / 1000} /> :
         file && <ChatImage file={file} name={message.fileName || (language === 'ru' ? 'Фото' : 'Rasm')} zoom
-          className="max-h-72 max-w-full rounded-xl object-contain" />}
+          className="block max-h-80 w-full rounded-xl bg-slate-50 object-contain" />}
       {Capacitor.getPlatform() === 'android'
-        ? <button type="button" disabled={saving} onClick={() => void save()} className="min-h-9 text-sm underline">
+        ? <button type="button" disabled={saving} onClick={() => void save()} className="mt-2 flex min-h-9 w-fit items-center rounded-lg bg-white/80 px-2.5 text-xs font-medium text-green-800">
           {saving ? '…' : t.download}
         </button>
-        : <a href={url} download={message.fileName ?? undefined} className="text-sm underline">{t.download}</a>}
+        : <a href={url} download={message.fileName ?? undefined} className="mt-2 block w-fit text-xs font-medium text-green-800 underline">{t.download}</a>}
       {saveStatus && <p role="status" className="text-xs text-slate-700">{saveStatus}</p>}
     </> : <>
       <button type="button" className={message.kind === 'VOICE'
@@ -343,6 +339,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   useEffect(() => cancelPress, []);
   const [error, setError] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [editingImage, setEditingImage] = useState(false);
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -386,6 +383,21 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
 
   const scrollOnChange = useRef(true);
   const input = useRef<HTMLInputElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
+  const emojiCursor = useRef<number | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  function insertEmoji(emoji: string) {
+    const field = composer.current;
+    const start = emojiCursor.current ?? field?.selectionStart ?? draft.length;
+    const end = emojiCursor.current ?? field?.selectionEnd ?? start;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    if (next.length > 4000) return;
+    emojiCursor.current = start + emoji.length;
+    changeDraft(next);
+    field?.setSelectionRange(emojiCursor.current, emojiCursor.current);
+  }
+
 
   function frame(type: string, fields: Record<string, unknown> = {}) {
     if (socket.current?.readyState !== WebSocket.OPEN) return false;
@@ -401,6 +413,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
     let delay = 1000;
     let connected: WebSocket;
     setReady(false);
+    setEmojiOpen(false);
     setMessages([]);
     setLoaded(false);
     setOlder(false);
@@ -491,6 +504,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
               scrollOnChange.current = true;
               pendingText.current = null;
               setSending(false);
+              setEmojiOpen(false);
               setDraft('');
               setReplyToId(undefined);
             }
@@ -748,7 +762,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
       const original = attachment.file;
       const resizeFirst = image && (original.size > IMAGE_LIMIT || /\.svgz?$/i.test(original.name)
         || original.type === 'image/svg+xml');
-      const file = resizeFirst ? await resizeChatImage(original) : original;
+      const file = resizeFirst ? (await resizeChatImage(original) ?? (original.size <= IMAGE_LIMIT ? original : null)) : original;
       if (attempt !== generation.current) return;
       if (!file) return setError(original.size > IMAGE_LIMIT ? t.size : t.unsupported);
       body.set('file', file);
@@ -987,26 +1001,38 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
           </div>}
           {attachment && <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-1">
             {attachment.kind === 'IMAGE' && <ChatImage file={attachment.file} name={attachment.file.name}
-              className="size-16 shrink-0 rounded-lg object-cover" />}
+              className="size-16 shrink-0 rounded-lg bg-white object-contain" />}
             {attachment.kind === 'VOICE' ? <div className="min-w-0 flex-1">
               {voicePreviewUrl && <ChatVoicePlayer url={voicePreviewUrl} language={language}
                 durationHint={Number(attachment.file.name.match(/^voice-(\d+)\./)?.[1] ?? 0) / 1000} />}
             </div> : <span className="min-w-0 flex-1 truncate">{attachment.file.name}</span>}
+            {attachment.kind === 'IMAGE' && <button type="button" className={iconButton} disabled={sending}
+              aria-label={language === 'ru' ? 'Рисовать на фото' : 'Rasm ustiga chizish'} onClick={() => setEditingImage(true)}><Pencil size={17} /></button>}
             <button type="button" className={iconButton} disabled={sending} onClick={() => setAttachment(null)} aria-label={t.cancel}><X size={18} /></button>
           </div>}
+          {emojiOpen && !recording && !attachment && <ChatEmojiPicker language={language} onChoose={insertEmoji} />}
           {!recording && <div className="flex items-end gap-1.5 sm:gap-2">
-            <input type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.svg,.psd,.jxl,.jp2,.dng,.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf" ref={input} hidden onChange={event => {
+            <input type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.svg,.psd,.jxl,.jp2,.dng,.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.raw,.tga,.dds,.exr,.hdr,.qoi,.xcf,.j2k,.psb,.pnm,.pbm,.pgm,.ppm,.wmf,.emf,.sr2,.pef,.x3f" ref={input} hidden onChange={event => {
               const file = event.target.files?.[0];
               event.target.value = '';
               if (!file) return;
               setError('');
+              setEmojiOpen(false);
               setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
+              setEditingImage(true);
             }} />
             <button type="button" className={iconButton} disabled={sending || recording || requestingMic} onClick={() => input.current?.click()} aria-label={t.image}><ImagePlus size={19} /></button>
             <button type="button" className={iconButton} disabled={sending || requestingMic || !!attachment} onClick={() => void record()} aria-label={t.voice}>
               <Mic size={19} />
             </button>
-            <textarea className="min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2.5"
+            <button type="button" className={iconButton} aria-expanded={emojiOpen && !attachment}
+              aria-label={language === 'ru' ? 'Эмодзи' : 'Emojilar'} disabled={sending || !!attachment}
+              onClick={() => {
+                emojiCursor.current = null;
+                composer.current?.blur();
+                setEmojiOpen(open => !open);
+              }}><Smile size={20} aria-hidden="true" /></button>
+            <textarea ref={composer} onFocus={() => setEmojiOpen(false)} className="min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2.5"
               rows={1} aria-label={t.write} placeholder={t.write} maxLength={4000} value={draft}
               disabled={sending || recording || !!attachment} onChange={event => changeDraft(event.target.value)} />
             <button className="grid size-11 shrink-0 place-items-center rounded-xl bg-green-700 text-white disabled:opacity-40"
@@ -1017,6 +1043,11 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
         <MessageCircle size={32} /><p>{t.choose}</p>
       </section>}
     </div>
+    {editingImage && attachment?.kind === 'IMAGE' && <ChatImageEditor file={attachment.file} language={language}
+      onClose={() => setEditingImage(false)} onApply={file => {
+        setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
+        setEditingImage(false);
+      }} />}
     {onBack && <Drawer placement="bottom" open={!!actionMessage && !actionMessage.deleted}
       title={labels.actions} onClose={() => setActionId(undefined)}
       height="auto" styles={{ body: { paddingBottom: 'max(24px, env(safe-area-inset-bottom))', maxHeight: '65dvh' } }}>
