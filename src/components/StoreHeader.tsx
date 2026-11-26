@@ -673,14 +673,6 @@ export function StoreHeader({
 
         {/* Zone 3: Right Actions — Savat, Notifications, Language, Account Actions & Mobile Hamburger */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 relative z-10">
-          {profile && !isAdmin && Capacitor.isNativePlatform() && (
-            <button type="button" onClick={() => handleNavigate('/chat')} aria-label={chatLabel}
-              title={chatLabel} aria-current={cleanPath === '/chat' ? 'page' : undefined}
-              className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 px-2 text-green-800 focus-visible:outline-2 focus-visible:outline-green-600">
-              <MessageCircle className="size-5" aria-hidden="true" />
-              <span className="hidden sm:inline text-sm font-semibold">{chatLabel}</span>
-            </button>
-          )}
           <button
             type="button"
             onClick={() => openCartDrawer()}
