@@ -312,6 +312,8 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   const [searchPage, setSearchPage] = useState({ query: '', next: 0, more: false });
   const [messages, setMessages] = useState<Message[]>([]);
   const [ready, setReady] = useState(false);
+  const [connectionFailed, setConnectionFailed] = useState(false);
+  const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [older, setOlder] = useState(false);
   const [draft, setDraft] = useState('');
@@ -368,6 +370,8 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   useEffect(() => {
     let alive = true;
     let retry: number | undefined;
+    let handshake: number | undefined;
+    setConnectionFailed(false);
     let delay = 1000;
     let connected: WebSocket;
     setReady(false);
@@ -386,9 +390,12 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
       const ws = new WebSocket(url);
       connected = ws;
       socket.current = ws;
+      handshake = window.setTimeout(() => ws.close(), 10000);
       ws.onopen = () => ws.send(JSON.stringify({ type: 'AUTH', accessToken: token }));
       ws.onclose = () => {
+        window.clearTimeout(handshake);
         if (!alive) return;
+        setConnectionFailed(true);
         jumpCursor.current = undefined;
         setReady(false);
         setLoaded(false);
@@ -401,6 +408,8 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
         const event = JSON.parse(data);
         switch (event.type) {
           case 'READY':
+            window.clearTimeout(handshake);
+            setConnectionFailed(false);
             delay = 1000;
             setReady(true);
             if (admin) frame('CONVERSATIONS');
@@ -491,10 +500,11 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
       alive = false;
       window.clearInterval(ping);
       window.clearTimeout(retry);
+      window.clearTimeout(handshake);
       connected?.close();
       socket.current = null;
     };
-  }, [admin, token, userId, t.failed]);
+  }, [admin, token, userId, t.failed, connectionAttempt]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -796,7 +806,15 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
           {admin && selected?.phone && <a href={`tel:${selected.phone.replace(/[^+\d]/g, '')}`}
             className="inline-block rounded-full bg-green-50 px-2 py-1 text-sm font-medium text-green-800">{selected.phone}</a>}
           {admin && profileError && !selected && <p role="status" className="text-sm text-slate-600">{t.noUsers}</p>}
-          <p className="min-h-5 text-sm text-slate-600" aria-live="polite">{peerStatus || (ready ? t.online : t.offline)}</p>
+          <p className="min-h-5 text-sm text-slate-600" aria-live="polite">{peerStatus || (ready ? t.online : connectionFailed
+            ? (language === 'ru' ? 'Не удалось подключиться. Повторяем попытку.' : 'Chatga ulanib bo‘lmadi. Qayta ulanmoqda.')
+            : t.offline)}</p>
+          {!ready && connectionFailed && (
+            <button type="button" className="mt-1 text-sm font-medium text-green-800 underline"
+              onClick={() => setConnectionAttempt(attempt => attempt + 1)}>
+              {language === 'ru' ? 'Повторить сейчас' : 'Qayta ulanish'}
+            </button>
+          )}
         </header>
         <div className={`overflow-y-auto overscroll-contain bg-slate-50 px-3 py-3 sm:px-5 ${fullScreen
           ? 'min-h-0 flex-1' : 'h-[48dvh] min-h-48 sm:h-[54dvh]'}`}>
