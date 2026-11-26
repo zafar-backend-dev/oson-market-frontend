@@ -13,6 +13,7 @@ import {
   AtSign,
   Camera,
   CheckCircle2,
+  FolderOpen,
   Globe,
   Phone,
   RefreshCw,
@@ -118,6 +119,7 @@ export function DashboardWorkspace({
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const avatarUrlRef = useRef<string | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const replaceAvatarObjectUrl = (nextUrl: string | null) => {
@@ -422,6 +424,8 @@ export function DashboardWorkspace({
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <input ref={galleryInputRef} type="file" accept="image/*"
+                          onChange={handleAvatarFileSelected} hidden />
                         <input
                           ref={fileInputRef}
                           type="file"
@@ -432,12 +436,16 @@ export function DashboardWorkspace({
                           size="small"
                           icon={<Camera className="w-3.5 h-3.5" />}
                           loading={avatarBusy}
-                          onClick={() => fileInputRef.current?.click()}
+                          onClick={() => galleryInputRef.current?.click()}
                           className="!min-h-[36px]"
                         >
                           {profile.avatarUrl || avatarObjectUrl
                             ? t.workspace.avatar.replaceButton
                             : t.workspace.avatar.uploadButton}
+                        </Button>
+                        <Button size="small" icon={<FolderOpen className="size-3.5" />}
+                          disabled={avatarBusy} onClick={() => fileInputRef.current?.click()} className="!min-h-[36px]">
+                          {language === 'ru' ? 'Файлы' : 'Fayllar'}
                         </Button>
 
                         {(profile.avatarUrl || avatarObjectUrl) && (
