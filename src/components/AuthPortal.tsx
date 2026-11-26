@@ -33,7 +33,6 @@ import { OtpVerificationPanel, type OtpFlowType } from './OtpVerificationPanel';
 import { SiteFooter } from './SiteFooter';
 import { SiteLogo } from './SiteLogo';
 
-const BRAND_IMAGE_SRC = '/src/assets/images/oson_market_brand_1795278421395.jpg';
 
 interface AuthPortalProps {
   language: Language;
@@ -163,7 +162,6 @@ export function AuthPortal({
     null,
   );
   const [signUpPassword, setSignUpPassword] = useState('');
-  const [imageFailed, setImageFailed] = useState(false);
   const [humanResetSignal, setHumanResetSignal] = useState(0);
 
   const [signInForm] = Form.useForm<SignInFormValues>();
@@ -636,645 +634,602 @@ export function AuthPortal({
         </div>
       </header>
 
-      {/* Main 1440px Split Layout */}
-      <main className="flex-1 flex items-center">
-        <div className="w-full max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
-          {/* Left Editorial Visual Column */}
-          <div className="lg:col-span-6 flex flex-col justify-between gap-8 bg-white border border-[#e6e4dd] rounded-xl p-5 sm:p-8">
-            <div className="space-y-4">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-                {t.heroTitle}
-              </h1>
-              <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl">
-                {t.heroSubtitle}
-              </p>
+      <main className="flex flex-1 items-start justify-center px-4 py-6 sm:items-center sm:py-10">
+        <div className="w-full max-w-[480px] bg-white border border-[#e6e4dd] rounded-xl p-5 sm:p-8">
+          {!isVerifyRoute && activeNavMode !== 'forgot-password' && (
+            <div className="mb-6">
+              <Segmented
+                block
+                size="large"
+                value={activeNavMode}
+                onChange={(val) => navigateToMode(val as AuthScreenMode)}
+                options={[
+                  { label: t.tabs.signIn, value: 'sign-in' },
+                  { label: t.tabs.signUp, value: 'sign-up' },
+                ]}
+              />
             </div>
+          )}
 
-            <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-[#f7f6f2] border border-[#e6e4dd]">
-              {!imageFailed ? (
-                <img
-                  src={BRAND_IMAGE_SRC}
-                  alt={t.heroImageAlt}
-                  referrerPolicy="no-referrer"
-                  onError={() => setImageFailed(true)}
-                  className="w-full h-full object-cover"
+          {externalNotice && (
+            <div className="mb-5">
+              <Alert
+                type={externalNotice.type}
+                showIcon
+                closable
+                onClose={onClearExternalNotice}
+                title={externalNotice.text}
+                className="text-xs rounded-lg"
+              />
+            </div>
+          )}
+
+          <AnimatePresence mode="wait">
+            {isVerifyRoute && challenge ? (
+              <motion.div
+                key={`otp-${challenge.flowType}-${challenge.challengeId}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <OtpVerificationPanel
+                  language={language}
+                  flowType={challenge.flowType}
+                  targetLabel={challenge.targetLabel}
+                  challengeId={challenge.challengeId}
+                  serverInfoMessage={challenge.serverInfoMessage}
+                  validitySecondsLeft={validitySecondsLeft}
+                  resendCooldownSecondsLeft={resendCooldownSecondsLeft}
+                  failedAttempts={failedAttempts}
+                  errorMessage={apiError?.message ?? null}
+                  errorFields={apiError?.fields ?? []}
+                  submitting={submitting}
+                  resending={resending}
+                  onVerify={handleOtpVerify}
+                  onResend={handleResendCode}
+                  onBack={() => {
+                    clearError();
+                    if (routeView === 'sign-in-verify') navigate('/auth/sign-in');
+                    else if (routeView === 'sign-up-verify') navigate('/auth/sign-up');
+                    else navigate('/auth/forgot-password');
+                  }}
                 />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#f7f6f2] text-slate-500 p-6 text-center">
-                  <SiteLogo language={language} size="xl" />
-                </div>
-              )}
-            </div>
+              </motion.div>
+            ) : routeView === 'sign-in' ? (
+              <motion.div
+                key="sign-in-step1"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-5"
+              >
+                <Steps
+                  size="small"
+                  current={0}
+                  items={[{ title: t.otp.step1Label }, { title: t.otp.step2Label }]}
+                />
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-2 border-t border-[#f2f0ea]">
-              {t.heroSteps.map((step) => (
-                <div key={step.title} className="space-y-1">
-                  <h3 className="text-xs font-semibold text-slate-900">{step.title}</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">{step.description}</p>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
+                    {t.signIn.heading}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">{t.signIn.subheading}</p>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Right Authentication Card Column */}
-          <div className="lg:col-span-6 flex items-center justify-center lg:justify-end">
-            <div className="w-full max-w-[480px] bg-white border border-[#e6e4dd] rounded-xl p-5 sm:p-8">
-              {!isVerifyRoute && activeNavMode !== 'forgot-password' && (
-                <div className="mb-6">
-                  <Segmented
-                    block
-                    size="large"
-                    value={activeNavMode}
-                    onChange={(val) => navigateToMode(val as AuthScreenMode)}
-                    options={[
-                      { label: t.tabs.signIn, value: 'sign-in' },
-                      { label: t.tabs.signUp, value: 'sign-up' },
-                    ]}
-                  />
-                </div>
-              )}
-
-              {externalNotice && (
-                <div className="mb-5">
+                {apiError && (
                   <Alert
-                    type={externalNotice.type}
+                    type="error"
                     showIcon
-                    closable
-                    onClose={onClearExternalNotice}
-                    title={externalNotice.text}
+                    title={apiError.message}
                     className="text-xs rounded-lg"
                   />
-                </div>
-              )}
-
-              <AnimatePresence mode="wait">
-                {isVerifyRoute && challenge ? (
-                  <motion.div
-                    key={`otp-${challenge.flowType}-${challenge.challengeId}`}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    <OtpVerificationPanel
-                      language={language}
-                      flowType={challenge.flowType}
-                      targetLabel={challenge.targetLabel}
-                      challengeId={challenge.challengeId}
-                      serverInfoMessage={challenge.serverInfoMessage}
-                      validitySecondsLeft={validitySecondsLeft}
-                      resendCooldownSecondsLeft={resendCooldownSecondsLeft}
-                      failedAttempts={failedAttempts}
-                      errorMessage={apiError?.message ?? null}
-                      errorFields={apiError?.fields ?? []}
-                      submitting={submitting}
-                      resending={resending}
-                      onVerify={handleOtpVerify}
-                      onResend={handleResendCode}
-                      onBack={() => {
-                        clearError();
-                        if (routeView === 'sign-in-verify') navigate('/auth/sign-in');
-                        else if (routeView === 'sign-up-verify') navigate('/auth/sign-up');
-                        else navigate('/auth/forgot-password');
-                      }}
-                    />
-                  </motion.div>
-                ) : routeView === 'sign-in' ? (
-                  <motion.div
-                    key="sign-in-step1"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className="space-y-5"
-                  >
-                    <Steps
-                      size="small"
-                      current={0}
-                      items={[{ title: t.otp.step1Label }, { title: t.otp.step2Label }]}
-                    />
-
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
-                        {t.signIn.heading}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">{t.signIn.subheading}</p>
-                    </div>
-
-                    {apiError && (
-                      <Alert
-                        type="error"
-                        showIcon
-                        title={apiError.message}
-                        className="text-xs rounded-lg"
-                      />
-                    )}
-
-                    <Form
-                      form={signInForm}
-                      layout="vertical"
-                      onFinish={handleSignInStep1}
-                      requiredMark={false}
-                    >
-                      <Form.Item
-                        name="login"
-                        label={
-                          <span className="text-sm font-medium text-slate-700">
-                            {t.signIn.loginLabel}
-                          </span>
-                        }
-                        rules={[{ required: true, message: t.validation.requiredLogin }]}
-                      >
-                        <Input
-                          size="large"
-                          prefix={<User className="w-4 h-4 text-slate-400 mr-1" />}
-                          placeholder={t.signIn.loginPlaceholder}
-                          autoComplete="username"
-                          disabled={submitting}
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="password"
-                        label={
-                          <span className="text-sm font-medium text-slate-700">
-                            {t.signIn.passwordLabel}
-                          </span>
-                        }
-                        rules={[{ required: true, message: t.validation.requiredPassword }]}
-                      >
-                        <Input.Password
-                          size="large"
-                          prefix={<Lock className="w-4 h-4 text-slate-400 mr-1" />}
-                          placeholder={t.signIn.passwordPlaceholder}
-                          autoComplete="current-password"
-                          disabled={submitting}
-                        />
-                      </Form.Item>
-
-                      <div className="flex items-center justify-end mb-4 -mt-2">
-                        <button
-                          type="button"
-                          onClick={() => navigateToMode('forgot-password')}
-                          className="text-xs font-medium text-[#16a34a] hover:text-[#15803d] transition-colors cursor-pointer whitespace-nowrap min-h-[36px] inline-flex items-center"
-                        >
-                          {t.signIn.forgotLink}
-                        </button>
-                      </div>
-
-                      <Form.Item
-                        name="humanVerified"
-                        rules={[
-                          {
-                            validator: (_, checked: boolean) =>
-                              checked
-                                ? Promise.resolve()
-                                : Promise.reject(new Error(t.validation.humanCheckRequired)),
-                          },
-                        ]}
-                      >
-                        <HumanVerificationField
-                          language={language}
-                          disabled={submitting}
-                          resetSignal={humanResetSignal}
-                        />
-                      </Form.Item>
-
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        size="large"
-                        block
-                        loading={submitting}
-                        disabled={resendCooldownSecondsLeft > 0}
-                      >
-                        {resendCooldownSecondsLeft > 0 ? (
-                          <span className="tabular-nums">
-                            {t.otp.resendCooldown} ({resendCooldownSecondsLeft}s)
-                          </span>
-                        ) : (
-                          t.signIn.submit
-                        )}
-                      </Button>
-                    </Form>
-
-                    <Divider plain className="!my-4 !text-xs !text-slate-400">
-                      {t.signIn.orDivider}
-                    </Divider>
-
-                    <Button
-                      size="large"
-                      block
-                      icon={<GoogleMark />}
-                      onClick={handleGoogleRedirect}
-                      disabled={submitting}
-                      className="!flex !items-center !justify-center !gap-2.5"
-                    >
-                      <span>{t.signIn.googleButton}</span>
-                    </Button>
-                  </motion.div>
-                ) : routeView === 'sign-up' ? (
-                  <motion.div
-                    key="sign-up-step1"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className="space-y-5"
-                  >
-                    <Steps
-                      size="small"
-                      current={0}
-                      items={[{ title: t.otp.step1Label }, { title: t.otp.step2Label }]}
-                    />
-
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
-                        {t.signUp.heading}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">{t.signUp.subheading}</p>
-                    </div>
-
-                    {apiError && (
-                      <Alert
-                        type="error"
-                        showIcon
-                        title={apiError.message}
-                        className="text-xs rounded-lg"
-                      />
-                    )}
-
-                    <Form
-                      form={signUpForm}
-                      layout="vertical"
-                      onFinish={handleSignUpStep1}
-                      requiredMark={false}
-                    >
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Form.Item
-                          name="firstName"
-                          label={
-                            <span className="text-sm font-medium text-slate-700">
-                              {t.signUp.firstNameLabel}
-                            </span>
-                          }
-                          rules={[
-                            {
-                              validator: (_, value: string) => {
-                                const result = validatePersonName(value || '');
-                                if (!result.valid) {
-                                  if (result.reason === 'required') {
-                                    return Promise.reject(new Error(t.validation.requiredFirstName));
-                                  }
-                                  return Promise.reject(
-                                    new Error(t.validation.firstNameMaxLength),
-                                  );
-                                }
-                                return Promise.resolve();
-                              },
-                            },
-                          ]}
-                        >
-                          <Input
-                            size="large"
-                            placeholder={t.signUp.firstNamePlaceholder}
-                            autoComplete="given-name"
-                            disabled={submitting}
-                          />
-                        </Form.Item>
-
-                        <Form.Item
-                          name="lastName"
-                          label={
-                            <span className="text-sm font-medium text-slate-700">
-                              {t.signUp.lastNameLabel}
-                            </span>
-                          }
-                          rules={[
-                            {
-                              validator: (_, value: string) => {
-                                const result = validatePersonName(value || '');
-                                if (!result.valid) {
-                                  if (result.reason === 'required') {
-                                    return Promise.reject(new Error(t.validation.requiredLastName));
-                                  }
-                                  return Promise.reject(
-                                    new Error(t.validation.lastNameMaxLength),
-                                  );
-                                }
-                                return Promise.resolve();
-                              },
-                            },
-                          ]}
-                        >
-                          <Input
-                            size="large"
-                            placeholder={t.signUp.lastNamePlaceholder}
-                            autoComplete="family-name"
-                            disabled={submitting}
-                          />
-                        </Form.Item>
-                      </div>
-
-                      <Form.Item
-                        name="email"
-                        label={
-                          <span className="text-sm font-medium text-slate-700">
-                            {t.signUp.emailLabel}
-                          </span>
-                        }
-                        rules={[
-                          { required: true, message: t.validation.requiredEmail },
-                          {
-                            validator: (_, value: string) => {
-                              if (!value || isValidEmail(value)) return Promise.resolve();
-                              return Promise.reject(new Error(t.validation.invalidEmail));
-                            },
-                          },
-                        ]}
-                      >
-                        <Input
-                          size="large"
-                          prefix={<Mail className="w-4 h-4 text-slate-400 mr-1" />}
-                          placeholder={t.signUp.emailPlaceholder}
-                          autoComplete="email"
-                          disabled={submitting}
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="username"
-                        label={
-                          <span className="text-sm font-medium text-slate-700">
-                            {t.signUp.usernameLabel}
-                          </span>
-                        }
-                        extra={<span className="text-xs text-slate-500">{t.signUp.usernameHelp}</span>}
-                        rules={[
-                          { required: true, message: t.validation.requiredUsername },
-                          {
-                            validator: (_, value: string) => {
-                              if (!value || isValidUsername(value)) return Promise.resolve();
-                              return Promise.reject(new Error(t.validation.invalidUsername));
-                            },
-                          },
-                        ]}
-                      >
-                        <Input
-                          size="large"
-                          prefix={<User className="w-4 h-4 text-slate-400 mr-1" />}
-                          placeholder={t.signUp.usernamePlaceholder}
-                          autoComplete="username"
-                          disabled={submitting}
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="password"
-                        label={
-                          <span className="text-sm font-medium text-slate-700">
-                            {t.signUp.passwordLabel}
-                          </span>
-                        }
-                        extra={
-                          <div className="flex items-center justify-between gap-2 text-xs mt-1">
-                            <span className="text-slate-500">{t.signUp.passwordHelp}</span>
-                            <span
-                              className={`font-mono-tabular shrink-0 ${
-                                signUpPasswordBytes > 72
-                                  ? 'text-red-600 font-semibold'
-                                  : 'text-slate-500'
-                              }`}
-                            >
-                              {signUpPasswordBytes}/72 B
-                            </span>
-                          </div>
-                        }
-                        rules={[
-                          { required: true, message: t.validation.requiredPassword },
-                          {
-                            validator: (_, value: string) => {
-                              if (!value) return Promise.resolve();
-                              const result = validatePasswordRules(value);
-                              if (!result.valid) {
-                                if (result.reason === 'min_length') {
-                                  return Promise.reject(new Error(t.validation.passwordMinLength));
-                                }
-                                if (result.reason === 'max_length') {
-                                  return Promise.reject(new Error(t.validation.passwordMaxLength));
-                                }
-                                return Promise.reject(new Error(t.validation.passwordMaxBytes));
-                              }
-                              return Promise.resolve();
-                            },
-                          },
-                        ]}
-                      >
-                        <Input.Password
-                          size="large"
-                          prefix={<KeyRound className="w-4 h-4 text-slate-400 mr-1" />}
-                          placeholder={t.signUp.passwordPlaceholder}
-                          autoComplete="new-password"
-                          disabled={submitting}
-                          onChange={(e) => setSignUpPassword(e.target.value)}
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="confirmPassword"
-                        dependencies={['password']}
-                        label={
-                          <span className="text-sm font-medium text-slate-700">
-                            {t.signUp.confirmPasswordLabel}
-                          </span>
-                        }
-                        rules={[
-                          { required: true, message: t.validation.requiredConfirmPassword },
-                          ({ getFieldValue }) => ({
-                            validator(_, value: string) {
-                              if (!value || getFieldValue('password') === value) {
-                                return Promise.resolve();
-                              }
-                              return Promise.reject(new Error(t.validation.passwordsDoNotMatch));
-                            },
-                          }),
-                        ]}
-                      >
-                        <Input.Password
-                          size="large"
-                          prefix={<KeyRound className="w-4 h-4 text-slate-400 mr-1" />}
-                          placeholder={t.signUp.confirmPasswordPlaceholder}
-                          autoComplete="new-password"
-                          disabled={submitting}
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="humanVerified"
-                        rules={[
-                          {
-                            validator: (_, checked: boolean) =>
-                              checked
-                                ? Promise.resolve()
-                                : Promise.reject(new Error(t.validation.humanCheckRequired)),
-                          },
-                        ]}
-                      >
-                        <HumanVerificationField
-                          language={language}
-                          disabled={submitting}
-                          resetSignal={humanResetSignal}
-                        />
-                      </Form.Item>
-
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        size="large"
-                        block
-                        loading={submitting}
-                        disabled={resendCooldownSecondsLeft > 0}
-                      >
-                        {resendCooldownSecondsLeft > 0 ? (
-                          <span className="tabular-nums">
-                            {t.otp.resendCooldown} ({resendCooldownSecondsLeft}s)
-                          </span>
-                        ) : (
-                          t.signUp.submit
-                        )}
-                      </Button>
-                    </Form>
-
-                    <Divider plain className="!my-4 !text-xs !text-slate-400">
-                      {t.signIn.orDivider}
-                    </Divider>
-
-                    <Button
-                      size="large"
-                      block
-                      icon={<GoogleMark />}
-                      onClick={handleGoogleRedirect}
-                      disabled={submitting}
-                      className="!flex !items-center !justify-center !gap-2.5"
-                    >
-                      <span>{t.signIn.googleButton}</span>
-                    </Button>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="forgot-step1"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className="space-y-5"
-                  >
-                    <Steps
-                      size="small"
-                      current={0}
-                      items={[{ title: t.otp.step1Label }, { title: t.otp.step2Label }]}
-                    />
-
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
-                        {t.forgotPassword.heading}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">{t.forgotPassword.subheading}</p>
-                    </div>
-
-                    {apiError && (
-                      <Alert
-                        type="error"
-                        showIcon
-                        title={apiError.message}
-                        className="text-xs rounded-lg"
-                      />
-                    )}
-
-                    <Form
-                      form={forgotForm}
-                      layout="vertical"
-                      onFinish={handleForgotStep1}
-                      requiredMark={false}
-                    >
-                      <Form.Item
-                        name="email"
-                        label={
-                          <span className="text-sm font-medium text-slate-700">
-                            {t.forgotPassword.emailLabel}
-                          </span>
-                        }
-                        rules={[
-                          { required: true, message: t.validation.requiredEmail },
-                          {
-                            validator: (_, value: string) => {
-                              if (!value || isValidEmail(value)) return Promise.resolve();
-                              return Promise.reject(new Error(t.validation.invalidEmail));
-                            },
-                          },
-                        ]}
-                      >
-                        <Input
-                          size="large"
-                          prefix={<Mail className="w-4 h-4 text-slate-400 mr-1" />}
-                          placeholder={t.forgotPassword.emailPlaceholder}
-                          autoComplete="email"
-                          disabled={submitting}
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="humanVerified"
-                        rules={[
-                          {
-                            validator: (_, checked: boolean) =>
-                              checked
-                                ? Promise.resolve()
-                                : Promise.reject(new Error(t.validation.humanCheckRequired)),
-                          },
-                        ]}
-                      >
-                        <HumanVerificationField
-                          language={language}
-                          disabled={submitting}
-                          resetSignal={humanResetSignal}
-                        />
-                      </Form.Item>
-
-                      <div className="space-y-3">
-                        <Button
-                          type="primary"
-                          htmlType="submit"
-                          size="large"
-                          block
-                          loading={submitting}
-                          disabled={resendCooldownSecondsLeft > 0}
-                        >
-                          {resendCooldownSecondsLeft > 0 ? (
-                            <span className="tabular-nums">
-                              {t.otp.resendCooldown} ({resendCooldownSecondsLeft}s)
-                            </span>
-                          ) : (
-                            t.forgotPassword.submit
-                          )}
-                        </Button>
-
-                        <Button
-                          type="default"
-                          size="large"
-                          block
-                          disabled={submitting}
-                          onClick={() => navigateToMode('sign-in')}
-                        >
-                          {t.forgotPassword.backToSignIn}
-                        </Button>
-                      </div>
-                    </Form>
-                  </motion.div>
                 )}
-              </AnimatePresence>
-            </div>
-          </div>
+
+                <Form
+                  form={signInForm}
+                  layout="vertical"
+                  onFinish={handleSignInStep1}
+                  requiredMark={false}
+                >
+                  <Form.Item
+                    name="login"
+                    label={
+                      <span className="text-sm font-medium text-slate-700">
+                        {t.signIn.loginLabel}
+                      </span>
+                    }
+                    rules={[{ required: true, message: t.validation.requiredLogin }]}
+                  >
+                    <Input
+                      size="large"
+                      prefix={<User className="w-4 h-4 text-slate-400 mr-1" />}
+                      placeholder={t.signIn.loginPlaceholder}
+                      autoComplete="username"
+                      disabled={submitting}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="password"
+                    label={
+                      <span className="text-sm font-medium text-slate-700">
+                        {t.signIn.passwordLabel}
+                      </span>
+                    }
+                    rules={[{ required: true, message: t.validation.requiredPassword }]}
+                  >
+                    <Input.Password
+                      size="large"
+                      prefix={<Lock className="w-4 h-4 text-slate-400 mr-1" />}
+                      placeholder={t.signIn.passwordPlaceholder}
+                      autoComplete="current-password"
+                      disabled={submitting}
+                    />
+                  </Form.Item>
+
+                  <div className="flex items-center justify-end mb-4 -mt-2">
+                    <button
+                      type="button"
+                      onClick={() => navigateToMode('forgot-password')}
+                      className="text-xs font-medium text-[#16a34a] hover:text-[#15803d] transition-colors cursor-pointer whitespace-nowrap min-h-[36px] inline-flex items-center"
+                    >
+                      {t.signIn.forgotLink}
+                    </button>
+                  </div>
+
+                  <Form.Item
+                    name="humanVerified"
+                    rules={[
+                      {
+                        validator: (_, checked: boolean) =>
+                          checked
+                            ? Promise.resolve()
+                            : Promise.reject(new Error(t.validation.humanCheckRequired)),
+                      },
+                    ]}
+                  >
+                    <HumanVerificationField
+                      language={language}
+                      disabled={submitting}
+                      resetSignal={humanResetSignal}
+                    />
+                  </Form.Item>
+
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    size="large"
+                    block
+                    loading={submitting}
+                    disabled={resendCooldownSecondsLeft > 0}
+                  >
+                    {resendCooldownSecondsLeft > 0 ? (
+                      <span className="tabular-nums">
+                        {t.otp.resendCooldown} ({resendCooldownSecondsLeft}s)
+                      </span>
+                    ) : (
+                      t.signIn.submit
+                    )}
+                  </Button>
+                </Form>
+
+                <Divider plain className="!my-4 !text-xs !text-slate-400">
+                  {t.signIn.orDivider}
+                </Divider>
+
+                <Button
+                  size="large"
+                  block
+                  icon={<GoogleMark />}
+                  onClick={handleGoogleRedirect}
+                  disabled={submitting}
+                  className="!flex !items-center !justify-center !gap-2.5"
+                >
+                  <span>{t.signIn.googleButton}</span>
+                </Button>
+              </motion.div>
+            ) : routeView === 'sign-up' ? (
+              <motion.div
+                key="sign-up-step1"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-5"
+              >
+                <Steps
+                  size="small"
+                  current={0}
+                  items={[{ title: t.otp.step1Label }, { title: t.otp.step2Label }]}
+                />
+
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
+                    {t.signUp.heading}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">{t.signUp.subheading}</p>
+                </div>
+
+                {apiError && (
+                  <Alert
+                    type="error"
+                    showIcon
+                    title={apiError.message}
+                    className="text-xs rounded-lg"
+                  />
+                )}
+
+                <Form
+                  form={signUpForm}
+                  layout="vertical"
+                  onFinish={handleSignUpStep1}
+                  requiredMark={false}
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Form.Item
+                      name="firstName"
+                      label={
+                        <span className="text-sm font-medium text-slate-700">
+                          {t.signUp.firstNameLabel}
+                        </span>
+                      }
+                      rules={[
+                        {
+                          validator: (_, value: string) => {
+                            const result = validatePersonName(value || '');
+                            if (!result.valid) {
+                              if (result.reason === 'required') {
+                                return Promise.reject(new Error(t.validation.requiredFirstName));
+                              }
+                              return Promise.reject(
+                                new Error(t.validation.firstNameMaxLength),
+                              );
+                            }
+                            return Promise.resolve();
+                          },
+                        },
+                      ]}
+                    >
+                      <Input
+                        size="large"
+                        placeholder={t.signUp.firstNamePlaceholder}
+                        autoComplete="given-name"
+                        disabled={submitting}
+                      />
+                    </Form.Item>
+
+                    <Form.Item
+                      name="lastName"
+                      label={
+                        <span className="text-sm font-medium text-slate-700">
+                          {t.signUp.lastNameLabel}
+                        </span>
+                      }
+                      rules={[
+                        {
+                          validator: (_, value: string) => {
+                            const result = validatePersonName(value || '');
+                            if (!result.valid) {
+                              if (result.reason === 'required') {
+                                return Promise.reject(new Error(t.validation.requiredLastName));
+                              }
+                              return Promise.reject(
+                                new Error(t.validation.lastNameMaxLength),
+                              );
+                            }
+                            return Promise.resolve();
+                          },
+                        },
+                      ]}
+                    >
+                      <Input
+                        size="large"
+                        placeholder={t.signUp.lastNamePlaceholder}
+                        autoComplete="family-name"
+                        disabled={submitting}
+                      />
+                    </Form.Item>
+                  </div>
+
+                  <Form.Item
+                    name="email"
+                    label={
+                      <span className="text-sm font-medium text-slate-700">
+                        {t.signUp.emailLabel}
+                      </span>
+                    }
+                    rules={[
+                      { required: true, message: t.validation.requiredEmail },
+                      {
+                        validator: (_, value: string) => {
+                          if (!value || isValidEmail(value)) return Promise.resolve();
+                          return Promise.reject(new Error(t.validation.invalidEmail));
+                        },
+                      },
+                    ]}
+                  >
+                    <Input
+                      size="large"
+                      prefix={<Mail className="w-4 h-4 text-slate-400 mr-1" />}
+                      placeholder={t.signUp.emailPlaceholder}
+                      autoComplete="email"
+                      disabled={submitting}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="username"
+                    label={
+                      <span className="text-sm font-medium text-slate-700">
+                        {t.signUp.usernameLabel}
+                      </span>
+                    }
+                    extra={<span className="text-xs text-slate-500">{t.signUp.usernameHelp}</span>}
+                    rules={[
+                      { required: true, message: t.validation.requiredUsername },
+                      {
+                        validator: (_, value: string) => {
+                          if (!value || isValidUsername(value)) return Promise.resolve();
+                          return Promise.reject(new Error(t.validation.invalidUsername));
+                        },
+                      },
+                    ]}
+                  >
+                    <Input
+                      size="large"
+                      prefix={<User className="w-4 h-4 text-slate-400 mr-1" />}
+                      placeholder={t.signUp.usernamePlaceholder}
+                      autoComplete="username"
+                      disabled={submitting}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="password"
+                    label={
+                      <span className="text-sm font-medium text-slate-700">
+                        {t.signUp.passwordLabel}
+                      </span>
+                    }
+                    extra={
+                      <div className="flex items-center justify-between gap-2 text-xs mt-1">
+                        <span className="text-slate-500">{t.signUp.passwordHelp}</span>
+                        <span
+                          className={`font-mono-tabular shrink-0 ${
+                            signUpPasswordBytes > 72
+                              ? 'text-red-600 font-semibold'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {signUpPasswordBytes}/72 B
+                        </span>
+                      </div>
+                    }
+                    rules={[
+                      { required: true, message: t.validation.requiredPassword },
+                      {
+                        validator: (_, value: string) => {
+                          if (!value) return Promise.resolve();
+                          const result = validatePasswordRules(value);
+                          if (!result.valid) {
+                            if (result.reason === 'min_length') {
+                              return Promise.reject(new Error(t.validation.passwordMinLength));
+                            }
+                            if (result.reason === 'max_length') {
+                              return Promise.reject(new Error(t.validation.passwordMaxLength));
+                            }
+                            return Promise.reject(new Error(t.validation.passwordMaxBytes));
+                          }
+                          return Promise.resolve();
+                        },
+                      },
+                    ]}
+                  >
+                    <Input.Password
+                      size="large"
+                      prefix={<KeyRound className="w-4 h-4 text-slate-400 mr-1" />}
+                      placeholder={t.signUp.passwordPlaceholder}
+                      autoComplete="new-password"
+                      disabled={submitting}
+                      onChange={(e) => setSignUpPassword(e.target.value)}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="confirmPassword"
+                    dependencies={['password']}
+                    label={
+                      <span className="text-sm font-medium text-slate-700">
+                        {t.signUp.confirmPasswordLabel}
+                      </span>
+                    }
+                    rules={[
+                      { required: true, message: t.validation.requiredConfirmPassword },
+                      ({ getFieldValue }) => ({
+                        validator(_, value: string) {
+                          if (!value || getFieldValue('password') === value) {
+                            return Promise.resolve();
+                          }
+                          return Promise.reject(new Error(t.validation.passwordsDoNotMatch));
+                        },
+                      }),
+                    ]}
+                  >
+                    <Input.Password
+                      size="large"
+                      prefix={<KeyRound className="w-4 h-4 text-slate-400 mr-1" />}
+                      placeholder={t.signUp.confirmPasswordPlaceholder}
+                      autoComplete="new-password"
+                      disabled={submitting}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="humanVerified"
+                    rules={[
+                      {
+                        validator: (_, checked: boolean) =>
+                          checked
+                            ? Promise.resolve()
+                            : Promise.reject(new Error(t.validation.humanCheckRequired)),
+                      },
+                    ]}
+                  >
+                    <HumanVerificationField
+                      language={language}
+                      disabled={submitting}
+                      resetSignal={humanResetSignal}
+                    />
+                  </Form.Item>
+
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    size="large"
+                    block
+                    loading={submitting}
+                    disabled={resendCooldownSecondsLeft > 0}
+                  >
+                    {resendCooldownSecondsLeft > 0 ? (
+                      <span className="tabular-nums">
+                        {t.otp.resendCooldown} ({resendCooldownSecondsLeft}s)
+                      </span>
+                    ) : (
+                      t.signUp.submit
+                    )}
+                  </Button>
+                </Form>
+
+                <Divider plain className="!my-4 !text-xs !text-slate-400">
+                  {t.signIn.orDivider}
+                </Divider>
+
+                <Button
+                  size="large"
+                  block
+                  icon={<GoogleMark />}
+                  onClick={handleGoogleRedirect}
+                  disabled={submitting}
+                  className="!flex !items-center !justify-center !gap-2.5"
+                >
+                  <span>{t.signIn.googleButton}</span>
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="forgot-step1"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-5"
+              >
+                <Steps
+                  size="small"
+                  current={0}
+                  items={[{ title: t.otp.step1Label }, { title: t.otp.step2Label }]}
+                />
+
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
+                    {t.forgotPassword.heading}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">{t.forgotPassword.subheading}</p>
+                </div>
+
+                {apiError && (
+                  <Alert
+                    type="error"
+                    showIcon
+                    title={apiError.message}
+                    className="text-xs rounded-lg"
+                  />
+                )}
+
+                <Form
+                  form={forgotForm}
+                  layout="vertical"
+                  onFinish={handleForgotStep1}
+                  requiredMark={false}
+                >
+                  <Form.Item
+                    name="email"
+                    label={
+                      <span className="text-sm font-medium text-slate-700">
+                        {t.forgotPassword.emailLabel}
+                      </span>
+                    }
+                    rules={[
+                      { required: true, message: t.validation.requiredEmail },
+                      {
+                        validator: (_, value: string) => {
+                          if (!value || isValidEmail(value)) return Promise.resolve();
+                          return Promise.reject(new Error(t.validation.invalidEmail));
+                        },
+                      },
+                    ]}
+                  >
+                    <Input
+                      size="large"
+                      prefix={<Mail className="w-4 h-4 text-slate-400 mr-1" />}
+                      placeholder={t.forgotPassword.emailPlaceholder}
+                      autoComplete="email"
+                      disabled={submitting}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="humanVerified"
+                    rules={[
+                      {
+                        validator: (_, checked: boolean) =>
+                          checked
+                            ? Promise.resolve()
+                            : Promise.reject(new Error(t.validation.humanCheckRequired)),
+                      },
+                    ]}
+                  >
+                    <HumanVerificationField
+                      language={language}
+                      disabled={submitting}
+                      resetSignal={humanResetSignal}
+                    />
+                  </Form.Item>
+
+                  <div className="space-y-3">
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      size="large"
+                      block
+                      loading={submitting}
+                      disabled={resendCooldownSecondsLeft > 0}
+                    >
+                      {resendCooldownSecondsLeft > 0 ? (
+                        <span className="tabular-nums">
+                          {t.otp.resendCooldown} ({resendCooldownSecondsLeft}s)
+                        </span>
+                      ) : (
+                        t.forgotPassword.submit
+                      )}
+                    </Button>
+
+                    <Button
+                      type="default"
+                      size="large"
+                      block
+                      disabled={submitting}
+                      onClick={() => navigateToMode('sign-in')}
+                    >
+                      {t.forgotPassword.backToSignIn}
+                    </Button>
+                  </div>
+                </Form>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
