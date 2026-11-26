@@ -1,3 +1,4 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { AVATAR_MAX_SOURCE_BYTES, prepareAvatarFile } from '../utils/avatarUpload';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
@@ -293,13 +294,7 @@ export function DashboardWorkspace({
     }
   };
 
-  const handleAvatarFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    setAvatarError(null);
-    setAvatarBusy(true);
+  const uploadAvatar = async (file: File, normalized = false) => {
     try {
       if (file.size > AVATAR_MAX_SOURCE_BYTES) {
         setAvatarError(language === 'ru'
@@ -307,7 +302,7 @@ export function DashboardWorkspace({
           : 'Rasm hajmi 25 MB dan oshmasligi kerak.');
         return;
       }
-      const prepared = await prepareAvatarFile(file);
+      const prepared = normalized ? file : await prepareAvatarFile(file);
       const updated = await authApi.uploadAvatar(session.accessToken, prepared, language);
       onProfileUpdated(updated);
       setAvatarVersion((v) => v + 1);
@@ -322,8 +317,45 @@ export function DashboardWorkspace({
       } else {
         setAvatarError(t.validation.avatarReadError);
       }
+    }
+  };
+
+  const handleAvatarFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file || avatarBusy) return;
+    setAvatarError(null);
+    setAvatarBusy(true);
+    try {
+      await uploadAvatar(file);
     } finally {
       input.value = '';
+      setAvatarBusy(false);
+    }
+  };
+
+  const pickAvatar = async (allFiles: boolean) => {
+    if (avatarBusy) return;
+    if (Capacitor.getPlatform() !== 'android') {
+      (allFiles ? fileInputRef : galleryInputRef).current?.click();
+      return;
+    }
+    setAvatarError(null);
+    setAvatarBusy(true);
+    try {
+      const picker = registerPlugin<{ pick(options: { allFiles: boolean }): Promise<
+        { cancelled: true } | { name: string; mimeType: string; normalized: boolean; data: string }
+      > }>('AvatarPicker');
+      const result = await picker.pick({ allFiles });
+      if ('cancelled' in result) return;
+      const bytes = Uint8Array.from(atob(result.data), byte => byte.charCodeAt(0));
+      await uploadAvatar(new File([bytes], result.name, { type: result.mimeType }), result.normalized);
+    } catch (error) {
+      const tooLarge = typeof error === 'object' && error !== null && 'code' in error && error.code === 'FILE_TOO_LARGE';
+      setAvatarError(tooLarge
+        ? (language === 'ru' ? 'Размер файла не должен превышать 25 МБ.' : 'Rasm hajmi 25 MB dan oshmasligi kerak.')
+        : t.validation.avatarReadError);
+    } finally {
       setAvatarBusy(false);
     }
   };
@@ -436,7 +468,7 @@ export function DashboardWorkspace({
                           size="small"
                           icon={<Camera className="w-3.5 h-3.5" />}
                           loading={avatarBusy}
-                          onClick={() => galleryInputRef.current?.click()}
+                          onClick={() => void pickAvatar(false)}
                           className="!min-h-[36px]"
                         >
                           {profile.avatarUrl || avatarObjectUrl
@@ -444,7 +476,7 @@ export function DashboardWorkspace({
                             : t.workspace.avatar.uploadButton}
                         </Button>
                         <Button size="small" icon={<FolderOpen className="size-3.5" />}
-                          disabled={avatarBusy} onClick={() => fileInputRef.current?.click()} className="!min-h-[36px]">
+                          disabled={avatarBusy} onClick={() => void pickAvatar(true)} className="!min-h-[36px]">
                           {language === 'ru' ? 'Файлы' : 'Fayllar'}
                         </Button>
 
