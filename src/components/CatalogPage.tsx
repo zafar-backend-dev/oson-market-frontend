@@ -207,6 +207,7 @@ function CatalogProductCard({
       <div className="bg-white border-b border-[#f2f0ea]">
         <SwipeableProductGallery
           images={galleryImages}
+          autoAdvanceMs={3000}
           alt={displayTitle}
           emptyLabel={tc.noImageLabel}
           prevLabel={tc.prevImageAriaLabel}

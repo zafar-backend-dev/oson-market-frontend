@@ -79,7 +79,7 @@ async function resizeChatImage(file: File): Promise<File | null> {
 
 const copy = {
   uz: {
-    title: 'Xabarlar', support: 'Admin bilan chat', online: 'Ulandi', offline: 'Ulanmoqda…',
+    title: 'Xabarlar', support: 'Chat', online: 'Ulandi', offline: 'Ulanmoqda…',
     typing: 'Yozmoqda…', recording: 'Ovozli xabar yozmoqda…', older: 'Avvalgi xabarlar',
     empty: 'Suhbatni xabar bilan boshlang.', write: 'Xabar yozing…', image: 'Rasm biriktirish',
     voice: 'Ovoz yozish', stop: 'Yozishni tugatish', send: 'Yuborish', cancel: 'Bekor qilish',
@@ -90,7 +90,7 @@ const copy = {
     unsupported: 'Bu fayl formatini yuborib bo‘lmadi.', users: 'Foydalanuvchilar', noUsers: 'Foydalanuvchi topilmadi.',
   },
   ru: {
-    title: 'Сообщения', support: 'Чат с администратором', online: 'Подключено', offline: 'Подключение…',
+    title: 'Сообщения', support: 'Чат', online: 'Подключено', offline: 'Подключение…',
     typing: 'Печатает…', recording: 'Записывает голосовое…', older: 'Предыдущие сообщения',
     empty: 'Отправьте первое сообщение.', write: 'Напишите сообщение…', image: 'Добавить изображение',
     voice: 'Записать голосовое', stop: 'Завершить запись', send: 'Отправить', cancel: 'Отменить',
@@ -759,7 +759,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   const actionButton = 'min-h-11 rounded-xl bg-green-700 px-4 text-white disabled:opacity-40';
   const fullScreen = Boolean(onBack);
   return <main className={fullScreen
-    ? 'flex h-dvh flex-col overflow-hidden bg-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]'
+    ? 'flex h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] flex-col overflow-hidden bg-white pt-[env(safe-area-inset-top)]'
     : 'mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-7'}>
     <div className={fullScreen ? 'flex min-h-0 flex-1 flex-col' :
       `grid overflow-hidden rounded-2xl border border-slate-200 bg-white ${admin ? 'md:grid-cols-[18rem_1fr]' : ''}`}>

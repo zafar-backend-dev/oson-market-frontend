@@ -1,3 +1,6 @@
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { ANDROID_APK_URL } from './constants';
+import { AppDownloadPage } from './components/AppDownloadPage';
 import { watchOrderAlertTaps } from './services/orderAlerts';
 import { startPromotionPush } from './services/promotionPush';
 import { Capacitor } from '@capacitor/core';
@@ -582,6 +585,8 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
   }, [language, navigate]);
 
   const isAuthenticated = Boolean(session && profile);
+  const showBottomNav = Capacitor.isNativePlatform() && profile?.role !== 'ADMIN'
+    && !location.pathname.startsWith('/auth/');
 
   return (
     <ProductSocialCacheProvider
@@ -596,7 +601,11 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
         language={language}
         onUnauthorized={handleUnauthorized}
       >
+        <div className={showBottomNav ? 'pb-[calc(4rem+env(safe-area-inset-bottom))]' : undefined}>
         <Routes>
+      {!Capacitor.isNativePlatform() && <Route path="/chat" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AppDownloadPage key="chat" language={language} apkUrl={ANDROID_APK_URL} chat /></>} />}
+      <Route path="/download" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AppDownloadPage key="download" language={language} apkUrl={ANDROID_APK_URL} /></>} />
+
       <Route
         path={GOOGLE_CALLBACK_PATH}
         element={
@@ -797,16 +806,14 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               )
             }
           />
-          <Route path="/chat" element={profile.role !== 'ADMIN' ? <>
-            {!Capacitor.isNativePlatform() && <StoreHeader language={language} profile={profile}
-              profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} />}
+          {Capacitor.isNativePlatform() && <Route path="/chat" element={profile.role !== 'ADMIN' ? <>
             <SupportChat onBack={Capacitor.isNativePlatform()
               ? () => window.history.state?.idx > 0 ? navigate(-1) : navigate('/', { replace: true })
               : undefined}
               actorId={profile.id} language={language} token={session.accessToken} request={(path, init) =>
               fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
                 language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
-          </> : <Navigate to="/" replace />} />
+          </> : <Navigate to="/" replace />} />}
           <Route path="/admin/chat" element={!Capacitor.isNativePlatform() && profile.role === 'ADMIN' ? <>
             <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)}
               onLanguageChange={handleLanguageChange} onLogout={handleLogout} />
@@ -1109,6 +1116,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               />
             }
           />
+          {Capacitor.isNativePlatform() && <Route path="/chat" element={<Navigate to="/auth/sign-in" replace />} />}
           <Route path="/profile" element={<Navigate to="/auth/sign-in" replace />} />
           <Route path="/security" element={<Navigate to="/auth/sign-in" replace />} />
           <Route path="/orders/*" element={<Navigate to="/auth/sign-in" replace />} />
@@ -1131,6 +1139,8 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
         </>
       )}
       </Routes>
+        </div>
+      {showBottomNav && <MobileBottomNav language={language} />}
 
       <CartDrawer
         language={language}

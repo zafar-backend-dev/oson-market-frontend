@@ -25,6 +25,7 @@ interface SwipeableProductGalleryProps {
   containerClassName?: string;
   imgClassName?: string;
   dotBarClassName?: string;
+  autoAdvanceMs?: number;
   arrowsVisibility?: 'hover' | 'always' | 'none';
 }
 
@@ -86,6 +87,7 @@ export function SwipeableProductGallery({
   imgClassName = 'w-full h-full object-contain p-2',
   dotBarClassName = 'bottom-2',
   arrowsVisibility = 'hover',
+  autoAdvanceMs,
 }: SwipeableProductGalleryProps) {
   const safeImages = useMemo(() => (Array.isArray(images) ? images : []), [images]);
   const [internalIndex, setInternalIndex] = useState(0);
@@ -142,6 +144,28 @@ export function SwipeableProductGallery({
     },
     [onSelectImageId, safeImages],
   );
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!autoAdvanceMs || !hasMultiple || !viewport) return;
+
+    let timer: number | undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      window.clearInterval(timer);
+      if (!entry?.isIntersecting) return;
+      timer = window.setInterval(() => {
+        if (!document.hidden && gestureRef.current.pointerId === null) {
+          setInternalIndex((current) => (current + 1) % safeImages.length);
+        }
+      }, autoAdvanceMs);
+    });
+    observer.observe(viewport);
+
+    return () => {
+      observer.disconnect();
+      window.clearInterval(timer);
+    };
+  }, [autoAdvanceMs, hasMultiple, safeImages.length]);
 
   const resetGesture = useCallback(() => {
     gestureRef.current.pointerId = null;

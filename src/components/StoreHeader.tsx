@@ -493,7 +493,8 @@ export function StoreHeader({
           },
         ];
 
-  const chatLabel = language === 'ru' ? 'Чат с администратором' : 'Admin bilan chat';
+  const chatLabel = Capacitor.isNativePlatform() ? (language === 'ru' ? 'Чат' : 'Chat')
+    : (language === 'ru' ? 'Чат с администратором' : 'Admin bilan chat');
   if (profile && !isAdmin) {
     primaryNavItems.splice(1, 0, {
       key: 'support-chat',
@@ -507,7 +508,7 @@ export function StoreHeader({
   if (ANDROID_APK_URL && canOfferAndroidDownload()) {
     primaryNavItems.splice(1, 0, {
       key: 'android-download',
-      path: ANDROID_APK_URL,
+      path: '/download',
       label: language === 'ru' ? 'Скачать приложение' : 'Ilovani yuklab olish',
       icon: <Download className="w-4 h-4 shrink-0" />,
       active: false,

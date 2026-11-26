@@ -8,6 +8,7 @@
     ]
   }],
   "rewrites": [
+    { "source": "/download", "destination": "/index.html" },
     { "source": "/chat", "destination": "/index.html" },
     { "source": "/catalog/:path*", "destination": "/index.html" },
     { "source": "/products/:path*", "destination": "/index.html" },

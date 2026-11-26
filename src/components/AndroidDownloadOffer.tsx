@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { canOfferAndroidDownload } from '../utils/androidDownload';
 import { useState } from 'react';
 import { Modal } from 'antd';
@@ -38,10 +39,10 @@ export function AndroidDownloadOffer({ guest, language }: { guest: boolean; lang
           : 'Android telefoningizda katalogni ko‘ring, buyurtmalarni kuzating va bildirishnomalarni oling.'}
       </p>
     </div>
-    <a href={ANDROID_APK_URL} download onClick={dismiss}
+    <Link to="/download" onClick={dismiss}
       className="mt-5 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 font-semibold text-white hover:bg-green-800 hover:text-white">
       <Download size={18} aria-hidden="true" />
-      {russian ? 'Скачать для Android' : 'Android uchun yuklab olish'}
-    </a>
+      {russian ? 'Скачать для Android' : 'Ilovani yuklab olish'}
+    </Link>
   </Modal>;
 }
