@@ -1,6 +1,6 @@
 import { ChatEmojiPicker } from './ChatEmojiPicker';
 import { ChatImageEditor } from './ChatImageEditor';
-import { decodeChatImage } from '../services/chatImage';
+import { copyChatImage, decodeChatImage } from '../services/chatImage';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -147,16 +147,21 @@ function ChatImage({ file, name, className, zoom = false }: { file: Blob; name: 
     let converted = '';
     void (async () => {
       try {
-        const { heicTo, isHeic } = await import('heic-to');
-        if (!await isHeic(new File([file], name, { type: file.type }))) {
-          if (active) setUnavailable(true);
-          return;
-        }
-        const image = await heicTo({ blob: file, type: 'image/png' });
-        if (active) {
-          converted = URL.createObjectURL(image);
-          setUrl(converted);
-        }
+        const source = await copyChatImage(new File([file], name, { type: file.type }));
+        const image = await decodeChatImage(source);
+        if (!active) return;
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error();
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const thumbnail = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.92));
+        if (!active) return;
+        if (!thumbnail) throw new Error();
+        converted = URL.createObjectURL(thumbnail);
+        setUrl(converted);
       } catch {
         if (active) setUnavailable(true);
       }
@@ -389,14 +394,30 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
   const emojiCursor = useRef<number | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
 
-  function selectImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const [readingImage, setReadingImage] = useState(false);
+
+  async function selectImage(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const selected = input.files?.[0];
+    if (!selected) return;
+    const attempt = generation.current;
     setError('');
     setEmojiOpen(false);
-    setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
-    setEditingImage(true);
+    setReadingImage(true);
+    try {
+      const file = await copyChatImage(selected);
+      if (attempt !== generation.current) return;
+      setAttachment({ file, kind: 'IMAGE', requestId: crypto.randomUUID() });
+      setEditingImage(true);
+    } catch {
+      if (attempt === generation.current) {
+        setError(language === 'ru' ? 'Не удалось прочитать файл. Выберите его ещё раз.'
+          : 'Faylni o‘qib bo‘lmadi. Rasmni qayta tanlang.');
+      }
+    } finally {
+      input.value = '';
+      setReadingImage(false);
+    }
   }
 
   function insertEmoji(emoji: string) {
@@ -1022,6 +1043,9 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
               aria-label={language === 'ru' ? 'Рисовать на фото' : 'Rasm ustiga chizish'} onClick={() => setEditingImage(true)}><Pencil size={17} /></button>}
             <button type="button" className={iconButton} disabled={sending} onClick={() => setAttachment(null)} aria-label={t.cancel}><X size={18} /></button>
           </div>}
+          {readingImage && <p role="status" className="text-xs text-slate-600">
+            {language === 'ru' ? 'Чтение файла…' : 'Rasm o‘qilmoqda…'}
+          </p>}
           {emojiOpen && !recording && !attachment && <ChatEmojiPicker language={language} onChoose={insertEmoji} />}
           {!recording && <div className="flex items-end gap-1.5 sm:gap-2">
             <input type="file" accept="image/*" ref={input} hidden onChange={selectImage} />
@@ -1039,7 +1063,7 @@ export function SupportChat({ admin = false, onBack, actorId, token, language, r
                   </button>
                 </div>
               }>
-              <button type="button" className={iconButton} disabled={sending || recording || requestingMic}
+              <button type="button" className={iconButton} disabled={sending || recording || requestingMic || readingImage}
                 aria-expanded={attachmentPickerOpen} aria-label={t.image}><ImagePlus size={19} /></button>
             </Popover>
             <button type="button" className={iconButton} disabled={sending || requestingMic || !!attachment} onClick={() => void record()} aria-label={t.voice}>
