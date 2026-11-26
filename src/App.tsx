@@ -1,3 +1,4 @@
+import { AndroidUpdateNotice } from './components/AndroidUpdateNotice';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ANDROID_APK_URL } from './constants';
 import { AppDownloadPage } from './components/AppDownloadPage';
@@ -1202,6 +1203,7 @@ export default function App() {
         }}
       >
         <AntApp>
+          <AndroidUpdateNotice language={language} />
           <SiteLogoProvider>
             <CartProvider>
               <OsonMarketShell language={language} onUpdateLanguage={setLanguage} />
