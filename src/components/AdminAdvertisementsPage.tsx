@@ -892,6 +892,9 @@ export function AdminAdvertisementsPage({
                 >
                   {ta.refreshButton}
                 </Button>
+                <Button size="large" className="!min-h-[44px]" onClick={() => navigate('/admin/android-release')}>
+                  {language === 'ru' ? 'Обновления Android' : 'Android yangilanishlari'}
+                </Button>
 
                 <Button
                   type="primary"
