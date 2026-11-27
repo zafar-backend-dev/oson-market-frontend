@@ -1,5 +1,5 @@
 import { useCart } from '../contexts/CartContext';
-import { Info, MessageCircle, ShoppingCart, Store, User } from 'lucide-react';
+import { ClipboardList, Info, MessageCircle, ShoppingCart, Store, User } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import type { Language } from '../types/auth';
 
@@ -9,7 +9,9 @@ export function MobileBottomNav({ language }: { language: Language }) {
   const ru = language === 'ru';
   const items = [
     { to: '/', label: ru ? 'Товары' : 'Mahsulotlar', icon: Store, active: /^\/(?:$|catalog(?:\/|$)|products(?:\/|$))/.test(pathname) },
-    { to: '/cart', label: ru ? 'Корзина' : 'Savat', icon: ShoppingCart, active: drawerOpen },
+    totalQuantity > 0
+      ? { to: '/cart', label: ru ? 'Корзина' : 'Savat', icon: ShoppingCart, active: drawerOpen }
+      : { to: '/orders', label: ru ? 'Мои заказы' : 'Buyurtmalarim', icon: ClipboardList, active: /^\/orders(?:\/|$)/.test(pathname) },
     { to: '/chat', label: ru ? 'Чат' : 'Chat', icon: MessageCircle, active: pathname === '/chat' },
     { to: '/about', label: ru ? 'О нас' : 'Biz haqimizda', icon: Info, active: pathname === '/about' },
     { to: '/profile', label: ru ? 'Профиль' : 'Profilim', icon: User, active: pathname === '/profile' },
