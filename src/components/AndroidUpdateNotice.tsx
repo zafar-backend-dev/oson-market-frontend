@@ -8,6 +8,7 @@ import { API_BASE_URL, PUBLIC_SITE_ORIGIN } from '../constants';
 import type { Language } from '../types/auth';
 
 interface AndroidRelease {
+  downloadUrl?: string | null;
   versionCode: number;
   versionName: string;
   minimumVersionCode: number;
@@ -76,7 +77,8 @@ export function AndroidUpdateNotice({ language }: { language: Language }) {
   const download = async () => {
     setDownloadFailed(false);
     try {
-      await Browser.open({ url: `${PUBLIC_SITE_ORIGIN}/downloads/oson-market.apk?v=${update.versionCode}` });
+      await Browser.open({ url: update.downloadUrl && /^https:\/\//i.test(update.downloadUrl)
+      ? update.downloadUrl : `${PUBLIC_SITE_ORIGIN}/downloads/oson-market.apk?v=${update.versionCode}` });
     } catch {
       setDownloadFailed(true);
     }

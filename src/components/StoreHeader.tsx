@@ -505,7 +505,7 @@ export function StoreHeader({
     });
   }
 
-  if (ANDROID_APK_URL && canOfferAndroidDownload()) {
+  if (canOfferAndroidDownload()) {
     primaryNavItems.splice(1, 0, {
       key: 'android-download',
       path: '/download',

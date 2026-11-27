@@ -587,7 +587,7 @@ export function CatalogProductDetailPage({
                 </div>
 
                 {/* Variant Selector */}
-                {product.variants.length > 0 && (
+                {product.variants.length > 1 && (
                   <div className="space-y-2.5 pt-4 border-t border-[#f2f0ea]">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm font-semibold text-slate-900">
@@ -749,7 +749,7 @@ export function CatalogProductDetailPage({
           productId={product.id}
           productPath={`/products/${encodeURIComponent(product.slug || product.id)}`}
           selectedVariantId={activeVariant?.id ?? null}
-          selectedVariantLabel={activeVariant?.title ?? null}
+          selectedVariantLabel={product.variants.length > 1 ? activeVariant?.title ?? null : null}
           oauthIntent={authModalPurpose}
           onCancel={() => setLoginModalOpen(false)}
           onAuthenticated={handleModalAuthenticated}
@@ -815,7 +815,7 @@ export function CatalogProductDetailPage({
                 size="compact"
                 showDiscountBadge={false}
               />
-              {activeVariant?.title && (
+              {product.variants.length > 1 && activeVariant?.title && (
                 <div className="text-[11px] font-mono text-slate-500 truncate">
                   {activeVariant.title}
                 </div>

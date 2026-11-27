@@ -1,5 +1,6 @@
+import { API_BASE_URL } from '../constants';
 import { SiteLogo } from './SiteLogo';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Language } from '../types/auth';
@@ -11,6 +12,26 @@ export function AppDownloadPage({ language, apkUrl, chat = false }: {
 }) {
   const ru = language === 'ru';
   const [platform, setPlatform] = useState<'android' | 'iphone'>('android');
+
+  const [configuredUrl, setConfiguredUrl] = useState<string>();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(API_BASE_URL + '/api/site/android-release', { signal: controller.signal, cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) return;
+        const { downloadUrl } = await response.json();
+        if (!controller.signal.aborted && typeof downloadUrl === 'string' && /^https:\/\//i.test(downloadUrl)) {
+          setConfiguredUrl(downloadUrl);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, []);
+
+  const downloadUrl = configuredUrl ?? apkUrl;
 
   return (
     <main className="mx-auto max-w-lg px-4 py-12">
@@ -43,7 +64,8 @@ export function AppDownloadPage({ language, apkUrl, chat = false }: {
             {platform === 'iphone' ? <p role="status" className="mt-3 rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
               {ru ? 'Версия для iPhone пока недоступна. Вы можете пользоваться сайтом Oson Market.'
                 : 'iPhone uchun ilova hozircha mavjud emas. Oson Market saytidan foydalanishingiz mumkin.'}
-            </p> : apkUrl ? <a href={apkUrl} download
+            </p> : loading ? <p role="status">{ru ? 'Загрузка…' : 'Yuklanmoqda…'}</p>
+          : downloadUrl ? <a href={downloadUrl} download={configuredUrl ? undefined : true}
               className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-3 font-semibold text-white hover:bg-green-800 hover:text-white">
               <Download size={18} aria-hidden="true" />{ru ? 'Скачать для Android' : 'Android uchun yuklab olish'}
             </a> : <p role="status" className="mt-3 text-sm text-slate-600">

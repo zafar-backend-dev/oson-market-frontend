@@ -3,7 +3,6 @@ import { canOfferAndroidDownload } from '../utils/androidDownload';
 import { useState } from 'react';
 import { Modal } from 'antd';
 import { Download, Smartphone } from 'lucide-react';
-import { ANDROID_APK_URL } from '../constants';
 import type { Language } from '../types/auth';
 
 const DISMISS_KEY = 'oson-market-android-offer-dismissed';
@@ -26,7 +25,7 @@ export function AndroidDownloadOffer({ guest, language }: { guest: boolean; lang
     }
   }
 
-  if (!guest || !ANDROID_APK_URL || !canOfferAndroidDownload() || dismissed) return null;
+  if (!guest || !canOfferAndroidDownload() || dismissed) return null;
   const russian = language === 'ru';
   return <Modal open centered width={420} footer={null} onCancel={dismiss}
     title={russian ? 'Oson Market для Android' : 'Android uchun Oson Market ilovasi'}>
