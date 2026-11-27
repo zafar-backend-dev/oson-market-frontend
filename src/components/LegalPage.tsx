@@ -1,3 +1,4 @@
+import { LegalMarkdown } from './LegalMarkdown';
 import { API_BASE_URL } from '../constants';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -127,7 +128,7 @@ export function LegalPage({ kind, language, request, eligible }: {
       <h1 className="mb-6 text-2xl font-bold sm:text-3xl">{titles[kind]}</h1>
       {(kind === 'privacy' || kind === 'terms' || kind === 'delete') && (revision ? <>
         <p className="mb-4 text-sm">{revision.version} · {new Date(revision.publishedAt).toLocaleDateString(language)}</p>
-        <p className="mb-5 whitespace-pre-wrap leading-relaxed">{ru ? revision.contentRu : revision.contentUz}</p>
+        <LegalMarkdown text={ru ? revision.contentRu : revision.contentUz} />
       </> : <p role="status">{revision === undefined ? (ru ? 'Загрузка…' : 'Yuklanmoqda…')
         : (ru ? 'Документ пока недоступен.' : 'Hujjat hozircha mavjud emas.')}</p>)}
       {kind === 'about' && <p>Oson Market</p>}

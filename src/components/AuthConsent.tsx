@@ -1,3 +1,4 @@
+import { LegalMarkdown } from './LegalMarkdown';
 import { useEffect, useRef, useState } from 'react';
 import { Modal } from 'antd';
 import { API_BASE_URL } from '../constants';
@@ -105,7 +106,7 @@ export function AuthConsent({ language, value, onChange }: {
       <div ref={reader} onScroll={checkEnd} tabIndex={0} className="max-h-[55dvh] overflow-y-auto overscroll-contain pr-2">
         {revision ? <>
           <p className="mb-4 text-sm text-slate-500">{revision.version} · {new Date(revision.publishedAt).toLocaleDateString(language)}</p>
-          <p className="whitespace-pre-wrap break-words leading-relaxed">{ru ? revision.contentRu : revision.contentUz}</p>
+          <LegalMarkdown text={ru ? revision.contentRu : revision.contentUz} />
         </> : error ? <>
           <p role="alert">{ru ? 'Документ не удалось загрузить.' : 'Hujjatni yuklab bo‘lmadi.'}</p>
           <button type="button" className="mt-2 underline" onClick={() => { setError(false); setAttempt(n => n + 1); }}>
