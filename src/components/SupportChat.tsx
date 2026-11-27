@@ -225,7 +225,7 @@ function Media({ message, request, language }: Pick<Props, 'request' | 'language
   }
 
   async function save() {
-    if (!file || saving) return;
+    if (message.kind !== 'IMAGE' || !file || saving) return;
     setSaving(true);
     setSaveStatus('');
     try {
@@ -269,11 +269,11 @@ function Media({ message, request, language }: Pick<Props, 'request' | 'language
         durationHint={Number(message.fileName?.match(/^voice-(\d+)\./)?.[1] ?? 0) / 1000} /> :
         file && <ChatImage file={file} name={message.fileName || (language === 'ru' ? 'Фото' : 'Rasm')} zoom
           className="block max-h-80 w-full rounded-xl bg-slate-50 object-contain" />}
-      {Capacitor.getPlatform() === 'android'
+      {message.kind === 'IMAGE' && (Capacitor.getPlatform() === 'android'
         ? <button type="button" disabled={saving} onClick={() => void save()} className="mt-2 flex min-h-9 w-fit items-center rounded-lg bg-white/80 px-2.5 text-xs font-medium text-green-800">
           {saving ? '…' : t.download}
         </button>
-        : <a href={url} download={message.fileName ?? undefined} className="mt-2 block w-fit text-xs font-medium text-green-800 underline">{t.download}</a>}
+        : <a href={url} download={message.fileName ?? undefined} className="mt-2 block w-fit text-xs font-medium text-green-800 underline">{t.download}</a>)}
       {saveStatus && <p role="status" className="text-xs text-slate-700">{saveStatus}</p>}
     </> : <>
       <button type="button" className={message.kind === 'VOICE'
