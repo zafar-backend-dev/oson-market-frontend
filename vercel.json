@@ -1,23 +1,80 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "headers": [{
-    "source": "/downloads/oson-market.apk",
-    "headers": [
-      { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
-      { "key": "Content-Disposition", "value": "attachment; filename=Oson-Market.apk" }
-    ]
-  }],
+  "headers": [
+    {
+      "source": "/downloads/oson-market.apk",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=Oson-Market.apk"
+        }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/download", "destination": "/index.html" },
-    { "source": "/chat", "destination": "/index.html" },
-    { "source": "/catalog/:path*", "destination": "/index.html" },
-    { "source": "/products/:path*", "destination": "/index.html" },
-    { "source": "/branches", "destination": "/index.html" },
-    { "source": "/about", "destination": "/index.html" },
-    { "source": "/profile", "destination": "/index.html" },
-    { "source": "/security", "destination": "/index.html" },
-    { "source": "/orders/:path*", "destination": "/index.html" },
-    { "source": "/admin/:path*", "destination": "/index.html" },
-    { "source": "/auth/:path*", "destination": "/index.html" }
+    {
+      "source": "/download",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/chat",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/catalog/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/products/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/branches",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/profile",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/security",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/orders/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/privacy-policy",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/delete-account",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/index.html"
+    }
   ]
 }

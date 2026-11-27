@@ -588,7 +588,11 @@ export function StoreHeader({
           active: cleanPath === '/admin/site-logo',
         },
         {
-          key: 'admin-android-release', path: '/admin/android-release',
+          key: 'admin-legal', path: '/admin/legal',
+      label: language === 'ru' ? 'Правовые документы' : 'Huquqiy hujjatlar',
+      icon: <Download className="size-4 shrink-0" />, active: cleanPath === '/admin/legal',
+    }, {
+      key: 'admin-android-release', path: '/admin/android-release',
           label: language === 'ru' ? 'Обновления Android' : 'Android yangilanishlari',
           icon: <Download className="size-4 shrink-0" />, active: cleanPath === '/admin/android-release',
         },

@@ -1,3 +1,4 @@
+import { LegalLinks } from './LegalPage';
 import { canOfferAndroidDownload } from '../utils/androidDownload';
 import { Link } from 'react-router-dom';
 import { translations } from '../i18n/translations';
@@ -53,6 +54,7 @@ export function SiteFooter({ language, homePath = '/' }: SiteFooterProps) {
           © {currentYear} {t.brandName}
         </div>
       </div>
+    <LegalLinks language={language} />
     </footer>
   );
 }

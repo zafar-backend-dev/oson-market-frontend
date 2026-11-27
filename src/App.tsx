@@ -1,3 +1,5 @@
+import { AdminLegalPage } from './components/AdminLegalPage';
+import { LegalLinks, LegalPage } from './components/LegalPage';
 import { AdminAndroidReleasePage } from './components/AdminAndroidReleasePage';
 import { AndroidUpdateNotice } from './components/AndroidUpdateNotice';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -607,6 +609,10 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
       >
         <div className={showBottomNav ? 'pb-[calc(4rem+env(safe-area-inset-bottom))]' : undefined}>
         <Routes>
+        <Route path="/privacy-policy" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="privacy" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
+        <Route path="/terms" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="terms" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
+        <Route path="/delete-account" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="delete" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
+        <Route path="/contact" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="contact" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
       {!Capacitor.isNativePlatform() && <Route path="/chat" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AppDownloadPage key="chat" language={language} apkUrl={ANDROID_APK_URL} chat /></>} />}
       <Route path="/download" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AppDownloadPage key="download" language={language} apkUrl={ANDROID_APK_URL} /></>} />
 
@@ -773,6 +779,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
           <Route
             path="/profile"
             element={
+              <>
               <DashboardWorkspace
                 language={language}
                 onLanguageChange={handleLanguageChange}
@@ -786,6 +793,8 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
                 onUnauthorized={handleUnauthorized}
                 onLogout={handleLogout}
               />
+              <LegalLinks language={language} profile />
+              </>
             }
           />
           <Route
@@ -818,6 +827,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
                 language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
           </> : <Navigate to="/" replace />} />}
+          <Route path="/admin/legal" element={profile.role === 'ADMIN' ? <><StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AdminLegalPage language={language} request={requestAndroidRelease} /></> : <Navigate to="/" replace />} />
           <Route path="/admin/android-release" element={profile.role === 'ADMIN' ? <>
             <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} />
             <AdminAndroidReleasePage language={language} request={requestAndroidRelease} />
