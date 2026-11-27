@@ -76,10 +76,19 @@ export function AndroidUpdateNotice({ language }: { language: Language }) {
 
   const download = async () => {
     setDownloadFailed(false);
+    const downloadPage = PUBLIC_SITE_ORIGIN + '/download';
+    const url = update.downloadUrl && /^https:\/\//i.test(update.downloadUrl) ? update.downloadUrl : downloadPage;
     try {
-      await Browser.open({ url: update.downloadUrl && /^https:\/\//i.test(update.downloadUrl)
-      ? update.downloadUrl : `${PUBLIC_SITE_ORIGIN}/downloads/oson-market.apk?v=${update.versionCode}` });
+      await Browser.open({ url });
     } catch {
+      if (url !== downloadPage) {
+        try {
+          await Browser.open({ url: downloadPage });
+          return;
+        } catch {
+          // Show the error if Android could not open either URL.
+        }
+      }
       setDownloadFailed(true);
     }
   };
