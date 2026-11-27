@@ -28,7 +28,7 @@ interface GuestAuthModalProps {
   productId?: string;
   productPath: string;
   selectedVariantId?: string | null;
-  selectedVariantSku?: string | null;
+  selectedVariantLabel?: string | null;
   cartSummary?: {
     itemCount: number;
     totalAmountLabel: string;
@@ -102,7 +102,7 @@ export function GuestAuthModal({
   productId,
   productPath,
   selectedVariantId = null,
-  selectedVariantSku = null,
+  selectedVariantLabel = null,
   cartSummary,
   onCancel,
   onAuthenticated,
@@ -410,9 +410,9 @@ export function GuestAuthModal({
               <div className="text-xs text-slate-500">{tg.selectedItemLabel}</div>
               <div className="text-sm font-semibold text-slate-900 truncate">{productTitle}</div>
             </div>
-            {selectedVariantSku && (
+            {selectedVariantLabel && (
               <code className="text-xs font-mono text-slate-700 bg-white border border-[#e6e4dd] rounded px-2 py-0.5 shrink-0">
-                {selectedVariantSku}
+                {selectedVariantLabel}
               </code>
             )}
           </div>

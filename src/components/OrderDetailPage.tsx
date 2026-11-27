@@ -869,7 +869,7 @@ export function OrderDetailPage({
                             {item.title}
                           </div>
                           <div className="text-xs font-mono text-slate-500">
-                            {item.variantTitle || item.sku}
+                            {item.variantTitle || (language === 'ru' ? 'Вариант' : 'Variant')}
                           </div>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 tabular-nums">
                             <span>

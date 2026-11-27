@@ -593,16 +593,10 @@ export function CatalogProductDetailPage({
                       <span className="text-sm font-semibold text-slate-900">
                         {tc.variantsTitle}
                       </span>
-                      {activeVariant?.sku && (
-                        <span className="text-xs text-slate-500">
-                          {tc.selectedSkuLabel}:{' '}
-                          <code className="font-mono text-slate-800">{activeVariant.sku}</code>
-                        </span>
-                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {product.variants.map((variant) => {
+                      {product.variants.map((variant, index) => {
                         const isSelected = activeVariant?.id === variant.id;
                         return (
                           <button
@@ -615,7 +609,7 @@ export function CatalogProductDetailPage({
                                 : 'bg-white border-[#e6e4dd] text-slate-700 hover:border-[#86efac]'
                             }`}
                           >
-                            <span className="font-mono text-xs sm:text-sm">{variant.title || variant.sku}</span>
+                            <span className="text-xs sm:text-sm">{variant.title?.trim() || `${language === 'ru' ? 'Вариант' : 'Variant'} ${index + 1}`}</span>
                             {variant.defaultType && (
                               <span className="text-xs opacity-75">
                                 ({tc.defaultVariantLabel})
@@ -755,7 +749,7 @@ export function CatalogProductDetailPage({
           productId={product.id}
           productPath={`/products/${encodeURIComponent(product.slug || product.id)}`}
           selectedVariantId={activeVariant?.id ?? null}
-          selectedVariantSku={activeVariant?.sku ?? null}
+          selectedVariantLabel={activeVariant?.title ?? null}
           oauthIntent={authModalPurpose}
           onCancel={() => setLoginModalOpen(false)}
           onAuthenticated={handleModalAuthenticated}
@@ -821,9 +815,9 @@ export function CatalogProductDetailPage({
                 size="compact"
                 showDiscountBadge={false}
               />
-              {activeVariant?.sku && (
+              {activeVariant?.title && (
                 <div className="text-[11px] font-mono text-slate-500 truncate">
-                  {activeVariant.sku}
+                  {activeVariant.title}
                 </div>
               )}
             </div>

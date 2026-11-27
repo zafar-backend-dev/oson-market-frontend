@@ -1625,7 +1625,10 @@ export function ProductFormDrawer({
                       />
                     )}
 
-                    <div className="grid gap-3.5 sm:grid-cols-2">
+                    <div className="grid gap-3.5 rounded-xl border border-green-100 bg-green-50/60 p-3 sm:grid-cols-2">
+                      <p className="text-xs text-green-900 sm:col-span-2">{language === 'ru'
+                        ? 'Эти названия увидят покупатели при выборе варианта.'
+                        : 'Xaridor variant tanlaganda shu nomni ko‘radi.'}</p>
                       <label className="block text-xs font-medium text-slate-700">
                         {language === 'ru' ? 'Название варианта (UZ)' : 'Variant nomi (UZ)'}
                         <Input className="mt-1" size="large" maxLength={150} value={variant.titleUz}

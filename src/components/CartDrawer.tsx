@@ -903,7 +903,7 @@ export function CartDrawer({
                       <div className="min-w-0">
                         <div className="text-sm font-semibold text-slate-900">{item.title}</div>
                         <div className="text-xs font-mono text-slate-500">
-                          {item.variantTitle || item.sku} · {item.quantity} {tc.cartItemsCountSuffix}
+                          {item.variantTitle || (language === 'ru' ? 'Вариант' : 'Variant')} · {item.quantity} {tc.cartItemsCountSuffix}
                         </div>
                       </div>
                       <span className="text-sm font-bold text-slate-900 tabular-nums shrink-0">
@@ -1518,7 +1518,7 @@ export function CartDrawer({
                           {item.productTitle}
                         </div>
                         <div className="text-slate-500 font-mono">
-                          {item.variantTitle || item.sku} × {item.quantity}
+                          {item.variantTitle || (language === 'ru' ? 'Вариант' : 'Variant')} × {item.quantity}
                         </div>
                       </div>
                       <span className="font-semibold text-slate-900 tabular-nums shrink-0">
@@ -1653,7 +1653,7 @@ export function CartDrawer({
                             {item.productTitle}
                           </Link>
                           <div className="text-xs font-mono text-slate-500 truncate">
-                            {item.variantTitle || item.sku}
+                            {item.variantTitle || (language === 'ru' ? 'Вариант' : 'Variant')}
                           </div>
                         </div>
 

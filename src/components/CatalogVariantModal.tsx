@@ -44,7 +44,7 @@ export function CatalogVariantModal({
       }
     >
       <div className="space-y-3 pt-2 max-h-[65vh] overflow-y-auto pr-1">
-        {product.variants.map((variant) => {
+        {product.variants.map((variant, index) => {
           const primaryImage = pickPrimaryImage(variant.images);
           const hasWeight =
             variant.weightGrams !== null && variant.weightGrams !== undefined;
@@ -71,7 +71,7 @@ export function CatalogVariantModal({
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="font-mono text-xs sm:text-sm font-semibold text-slate-900 truncate">
-                      {variant.title || variant.sku}
+                      {variant.title?.trim() || `${language === 'ru' ? 'Вариант' : 'Variant'} ${index + 1}`}
                     </span>
                     {variant.defaultType && (
                       <span className="text-[11px] font-medium text-[#15803d] bg-[#f0fdf4] border border-[#bbf7d0] px-1.5 py-0.5 rounded">
