@@ -7,7 +7,7 @@ type Request = (method: 'GET' | 'POST', path: string, body?: string) => Promise<
 
 export function AdminLegalPage({ language, request }: { language: Language; request: Request }) {
   const ru = language === 'ru';
-  const [kind, setKind] = useState<'privacy' | 'terms'>('privacy');
+  const [kind, setKind] = useState<'privacy' | 'terms' | 'delete'>('privacy');
   const [history, setHistory] = useState<Revision[]>([]);
   const [rows, setRows] = useState<Deletion[]>([]);
   const [version, setVersion] = useState('');
@@ -64,6 +64,7 @@ export function AdminLegalPage({ language, request }: { language: Language; requ
         <select className="rounded border p-2" value={kind} disabled={busy} onChange={e => setKind(e.target.value as typeof kind)}>
           <option value="privacy">{ru ? 'Политика конфиденциальности' : 'Maxfiylik siyosati'}</option>
           <option value="terms">{ru ? 'Условия использования' : 'Foydalanish shartlari'}</option>
+          <option value="delete">{ru ? 'Удаление аккаунта' : 'Hisobni o‘chirish'}</option>
         </select>
       </label>
       <label className="grid gap-1">{ru ? 'Новая версия' : 'Yangi versiya'}
