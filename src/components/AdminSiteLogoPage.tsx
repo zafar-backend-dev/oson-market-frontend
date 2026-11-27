@@ -1,3 +1,4 @@
+import { AVATAR_MAX_SOURCE_BYTES, prepareAvatarFile } from '../utils/avatarUpload';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Alert, App as AntApp, Button, Result, Spin } from 'antd';
 import { Image as ImageIcon, RefreshCw, RotateCcw, Save, Upload } from 'lucide-react';
@@ -8,10 +9,8 @@ import { authApi, AuthApiError } from '../services/authApi';
 import { siteLogoApi } from '../services/siteLogoApi';
 import type { AuthSession, Language, UserProfile } from '../types/auth';
 import {
-  AVATAR_MAX_DIMENSION,
   isProfileComplete,
   readImageDimensions,
-  validateCategoryImageFile,
 } from '../utils/validation';
 import { SiteFooter } from './SiteFooter';
 import { SiteLogo } from './SiteLogo';
@@ -144,45 +143,31 @@ export function AdminSiteLogoPage({
   };
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+    const input = event.currentTarget;
+    const source = input.files?.[0];
+    if (!source) return;
 
     setFileError(null);
     setSubmitError(null);
-
-    const validation = await validateCategoryImageFile(file);
-    if (!validation.valid) {
-      switch (validation.reason) {
-        case 'invalid_type':
-          setFileError(tl.validation.invalidType);
-          break;
-        case 'too_large':
-          setFileError(tl.validation.tooLarge);
-          break;
-        case 'invalid_dimensions':
-          setFileError(tl.validation.invalidDimensions);
-          break;
-        default:
-          setFileError(tl.validation.unreadable);
-          break;
-      }
+    if (source.size > AVATAR_MAX_SOURCE_BYTES) {
+      setFileError(language === 'ru' ? 'Размер файла не должен превышать 25 МБ.' : 'Rasm hajmi 25 MB dan oshmasligi kerak.');
+      input.value = '';
       return;
     }
 
+    let file: File;
     let width = 0;
     let height = 0;
     try {
-      const dims = await readImageDimensions(file);
-      width = dims.width;
-      height = dims.height;
-      if (width > AVATAR_MAX_DIMENSION || height > AVATAR_MAX_DIMENSION) {
-        setFileError(tl.validation.invalidDimensions);
-        return;
-      }
+      file = await prepareAvatarFile(source, true);
+      const dimensions = await readImageDimensions(file).catch(() => null);
+      width = dimensions?.width ?? 0;
+      height = dimensions?.height ?? 0;
     } catch {
       setFileError(tl.validation.unreadable);
       return;
+    } finally {
+      input.value = '';
     }
 
     const nextBlobUrl = URL.createObjectURL(file);
@@ -351,7 +336,7 @@ export function AdminSiteLogoPage({
               <section className="lg:col-span-7 bg-white border border-[#e6e4dd] rounded-xl p-5 sm:p-6 space-y-5">
                 <div>
                   <h2 className="text-base font-semibold text-slate-900">{tl.uploadSectionTitle}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{tl.fileHint}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{language === 'ru' ? 'SVG, PNG, WebP, JPEG, HEIC и другие изображения · до 25 МБ' : 'SVG, PNG, WebP, JPEG, HEIC va boshqa rasmlar · 25 MB gacha'}</p>
                 </div>
 
                 {submitError && (
@@ -375,7 +360,6 @@ export function AdminSiteLogoPage({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg"
                   onChange={(e) => void handleFileChange(e)}
                   className="hidden"
                 />
@@ -405,7 +389,7 @@ export function AdminSiteLogoPage({
                     <div className="rounded-xl border border-dashed border-[#d6d3cb] bg-[#faf9f5] min-h-[160px] p-6 flex flex-col items-center justify-center text-center gap-2">
                       <Upload className="w-6 h-6 text-slate-400" />
                       <span className="text-sm font-medium text-slate-700">{tl.previewEmpty}</span>
-                      <span className="text-xs text-slate-500">{tl.fileHint}</span>
+                      <span className="text-xs text-slate-500">{language === 'ru' ? 'SVG, PNG, WebP, JPEG, HEIC и другие изображения · до 25 МБ' : 'SVG, PNG, WebP, JPEG, HEIC va boshqa rasmlar · 25 MB gacha'}</span>
                     </div>
                   )}
                 </div>

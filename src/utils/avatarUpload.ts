@@ -8,7 +8,7 @@ function encode(canvas: HTMLCanvasElement, type: string, quality?: number): Prom
   return new Promise(resolve => canvas.toBlob(resolve, type, quality));
 }
 
-export async function prepareAvatarFile(source: File): Promise<File> {
+export async function prepareAvatarFile(source: File, preserveTransparency = false): Promise<File> {
   const file = await copyChatImage(source);
   let image: HTMLImageElement;
   try {
@@ -43,6 +43,15 @@ export async function prepareAvatarFile(source: File): Promise<File> {
   render(AVATAR_MAX_DIMENSION, false);
   const png = await encode(canvas, 'image/png');
   if (png && png.size <= AVATAR_MAX_BYTES) return new File([png], 'avatar.png', { type: 'image/png' });
+
+  if (preserveTransparency) {
+    for (const dimension of [1280, 768, 512]) {
+      render(dimension, false);
+      const resized = await encode(canvas, 'image/png');
+      if (resized && resized.size <= AVATAR_MAX_BYTES) return new File([resized], 'logo.png', { type: 'image/png' });
+    }
+    throw new Error('Cannot encode transparent logo');
+  }
 
   for (const dimension of [AVATAR_MAX_DIMENSION, 1280, 768]) {
     render(dimension, true);
