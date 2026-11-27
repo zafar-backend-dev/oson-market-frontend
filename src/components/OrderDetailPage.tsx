@@ -869,7 +869,7 @@ export function OrderDetailPage({
                             {item.title}
                           </div>
                           <div className="text-xs font-mono text-slate-500">
-                            {tc.skuPrefix}: {item.sku}
+                            {item.variantTitle || item.sku}
                           </div>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 tabular-nums">
                             <span>

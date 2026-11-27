@@ -57,6 +57,8 @@ interface VariantDraft {
   clientKey: string;
   id?: string;
   sku: string;
+  titleUz: string;
+  titleRu: string;
   barcode: string;
   status: string;
   regularPrice: number | null;
@@ -128,6 +130,8 @@ function createEmptyVariant(isDefault = false): VariantDraft {
   return {
     clientKey: nextClientKey('var'),
     sku: '',
+    titleUz: '',
+    titleRu: '',
     barcode: '',
     status: 'ACTIVE',
     regularPrice: null,
@@ -182,6 +186,8 @@ function mapDetailToVariantsDraft(detail: AdminProductDetailResponse): VariantDr
       clientKey: nextClientKey('var'),
       id: v.id,
       sku: v.sku ?? '',
+      titleUz: v.titleUz ?? '',
+      titleRu: v.titleRu ?? '',
       barcode: v.barcode ?? '',
       status: v.status ?? 'ACTIVE',
       regularPrice: typeof rawRegular === 'number' && Number.isFinite(rawRegular) ? rawRegular : null,
@@ -984,6 +990,8 @@ export function ProductFormDrawer({
       return {
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku.trim(),
+        titleUz: v.titleUz.trim(),
+        titleRu: v.titleRu.trim(),
         barcode: toNullableTrimmed(v.barcode),
         status: toNullableTrimmed(v.status),
         regularPrice: toOptionalMoney(v.regularPrice),
@@ -1616,6 +1624,21 @@ export function ProductFormDrawer({
                         className="text-xs rounded-lg"
                       />
                     )}
+
+                    <div className="grid gap-3.5 sm:grid-cols-2">
+                      <label className="block text-xs font-medium text-slate-700">
+                        {language === 'ru' ? 'Название варианта (UZ)' : 'Variant nomi (UZ)'}
+                        <Input className="mt-1" size="large" maxLength={150} value={variant.titleUz}
+                          disabled={submitting} placeholder="Qora titan · 128 GB"
+                          onChange={event => handleUpdateVariantField(variant.clientKey, 'titleUz', event.target.value)} />
+                      </label>
+                      <label className="block text-xs font-medium text-slate-700">
+                        {language === 'ru' ? 'Название варианта (RU)' : 'Variant nomi (RU)'}
+                        <Input className="mt-1" size="large" maxLength={150} value={variant.titleRu}
+                          disabled={submitting} placeholder="Чёрный титан · 128 ГБ"
+                          onChange={event => handleUpdateVariantField(variant.clientKey, 'titleRu', event.target.value)} />
+                      </label>
+                    </div>
 
                     {/* Variant Core Fields */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">

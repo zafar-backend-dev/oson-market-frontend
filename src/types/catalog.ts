@@ -22,6 +22,7 @@ export interface CatalogVariantPrice {
 export interface CatalogVariant {
   id: string;
   sku: string;
+  title?: string | null;
   weightGrams: number | null;
   lengthMm: number | null;
   widthMm: number | null;
@@ -36,6 +37,7 @@ export interface CartItem {
   productId: string;
   productSlug: string;
   productTitle: string;
+  variantTitle?: string | null;
   sku: string;
   imageUrl: string | null;
   price: CatalogVariantPrice;

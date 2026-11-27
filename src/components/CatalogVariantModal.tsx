@@ -71,7 +71,7 @@ export function CatalogVariantModal({
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="font-mono text-xs sm:text-sm font-semibold text-slate-900 truncate">
-                      {variant.sku}
+                      {variant.title || variant.sku}
                     </span>
                     {variant.defaultType && (
                       <span className="text-[11px] font-medium text-[#15803d] bg-[#f0fdf4] border border-[#bbf7d0] px-1.5 py-0.5 rounded">

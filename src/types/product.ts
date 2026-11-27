@@ -74,6 +74,8 @@ export interface AdminProductVariantPrice {
 export interface AdminProductVariantResponse {
   id: string;
   sku: string;
+  titleUz?: string | null;
+  titleRu?: string | null;
   barcode: string | null;
   status: VariantStatus | string | null;
   weightGrams: number | null;
@@ -106,6 +108,8 @@ export interface AdminProductVariantImagePayload {
 export interface AdminProductVariantPayload {
   id?: string;
   sku: string;
+  titleUz?: string | null;
+  titleRu?: string | null;
   barcode?: string | null;
   status?: string | null;
   weightGrams?: number | null;

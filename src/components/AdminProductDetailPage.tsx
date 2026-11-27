@@ -963,7 +963,7 @@ export function AdminProductDetailPage({
                               {tp.form.variantCardTitle} #{vIdx + 1}
                             </span>
                             <span className="font-mono-tabular text-sm font-semibold text-slate-800 break-all">
-                              {variant.sku}
+                              {(language === 'ru' ? variant.titleRu || variant.titleUz : variant.titleUz || variant.titleRu) || variant.sku}
                             </span>
                             {variant.defaultType && (
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#15803d]">

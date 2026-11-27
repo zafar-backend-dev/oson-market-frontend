@@ -47,6 +47,7 @@ export interface CustomerOrderItem {
   variantId: string;
   sku: string;
   title: string;
+  variantTitle?: string | null;
   quantity: number;
   unitPrice: number;
   discountAmount: number;

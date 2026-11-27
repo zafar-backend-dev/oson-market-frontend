@@ -212,6 +212,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             productSlug: product.slug || product.id,
             productTitle: displayTitle,
             sku: variant.sku,
+            variantTitle: variant.title ?? null,
             imageUrl: primaryImage?.imageUrl ?? next[existingIdx].imageUrl,
             price: validPrice,
             quantity: clampQuantity(next[existingIdx].quantity + 1),
@@ -229,6 +230,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             productSlug: product.slug || product.id,
             productTitle: displayTitle,
             sku: variant.sku,
+            variantTitle: variant.title ?? null,
             imageUrl: primaryImage?.imageUrl ?? null,
             price: validPrice,
             quantity: 1,
@@ -316,6 +318,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           item.productTitle !== nextTitle ||
           item.productSlug !== nextSlug ||
           item.sku !== variant.sku ||
+          (item.variantTitle ?? null) !== (variant.title ?? null) ||
           item.imageUrl !== nextImage ||
           item.price.amount !== variant.price.amount ||
           item.price.regularPrice !== variant.price.regularPrice ||
@@ -329,6 +332,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             productSlug: nextSlug,
             productTitle: nextTitle,
             sku: variant.sku,
+            variantTitle: variant.title ?? null,
             imageUrl: nextImage,
             price: variant.price,
           });

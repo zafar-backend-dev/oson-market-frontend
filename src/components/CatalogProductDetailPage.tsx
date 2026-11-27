@@ -615,7 +615,7 @@ export function CatalogProductDetailPage({
                                 : 'bg-white border-[#e6e4dd] text-slate-700 hover:border-[#86efac]'
                             }`}
                           >
-                            <span className="font-mono text-xs sm:text-sm">{variant.sku}</span>
+                            <span className="font-mono text-xs sm:text-sm">{variant.title || variant.sku}</span>
                             {variant.defaultType && (
                               <span className="text-xs opacity-75">
                                 ({tc.defaultVariantLabel})
