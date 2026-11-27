@@ -588,8 +588,8 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
     navigate('/auth/sign-in', { replace: true });
   }, [language, navigate]);
 
-  const requestAndroidRelease = useCallback((method: 'GET' | 'PUT' | 'POST', path: string, body?: string) =>
-    fetchWithSessionRefresh(path, { method, body, language, accessToken: session?.accessToken, credentials: 'omit', headers: body ? { 'Content-Type': 'application/json' } : undefined }), [language, session?.accessToken]);
+  const requestAndroidRelease = useCallback((method: 'GET' | 'PUT' | 'POST', path: string, body?: string, signal?: AbortSignal) =>
+    fetchWithSessionRefresh(path, { method, body, signal, language, accessToken: session?.accessToken, credentials: 'omit', headers: body ? { 'Content-Type': 'application/json' } : undefined }), [language, session?.accessToken]);
   const isAuthenticated = Boolean(session && profile);
   const showBottomNav = Capacitor.isNativePlatform() && profile?.role !== 'ADMIN'
     && !location.pathname.startsWith('/auth/');

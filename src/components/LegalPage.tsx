@@ -30,7 +30,7 @@ export function LegalLinks({ language, profile = false }: { language: Language; 
   </nav>;
 }
 
-type Request = (method: 'POST', path: string, body?: string) => Promise<Response>;
+type Request = (method: 'POST', path: string, body?: string, signal?: AbortSignal) => Promise<Response>;
 
 export function LegalPage({ kind, language, request, eligible }: {
   kind: 'privacy' | 'terms' | 'delete' | 'contact' | 'about';
@@ -67,19 +67,27 @@ export function LegalPage({ kind, language, request, eligible }: {
     if (busy || submitted || !eligible) return;
     setBusy(true);
     setError('');
+    const signal = AbortSignal.timeout(25000);
     try {
       const path = '/api/users/delete-account/';
       const response = challengeId
-        ? await request('POST', path + 'verify', JSON.stringify({ challengeId, code }))
-        : await request('POST', path + 'request');
+        ? await request('POST', path + 'verify', JSON.stringify({ challengeId, code }), signal)
+        : await request('POST', path + 'request', undefined, signal);
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.message || undefined);
       }
       if (challengeId) setSubmitted(true);
-      else setChallengeId((await response.json()).challengeId);
+      else {
+        const payload = await response.json();
+        if (typeof payload.challengeId !== 'string' || !payload.challengeId) {
+          throw new Error(ru ? 'Сервер не подтвердил отправку кода.' : 'Server kod yuborilganini tasdiqlamadi.');
+        }
+        setChallengeId(payload.challengeId);
+      }
     } catch (failure) {
-      setError(failure instanceof Error && failure.message ? failure.message
+      setError(signal.aborted ? (ru ? 'Сервер долго не отвечал. Проверьте почту перед повторным запросом.' : 'Server o‘z vaqtida javob bermadi. Yana kod so‘rashdan oldin emailingizni tekshiring.')
+        : failure instanceof Error && failure.message ? failure.message
         : ru ? 'Не удалось выполнить запрос.' : 'So‘rovni bajarib bo‘lmadi.');
     } finally {
       setBusy(false);
@@ -100,12 +108,13 @@ export function LegalPage({ kind, language, request, eligible }: {
         <Link className="underline" to="/privacy-policy">{ru ? 'Политика конфиденциальности' : 'Maxfiylik siyosati'}</Link>
         {submitted ? <p role="status">{ru ? 'Запрос подтверждён и зарегистрирован.' : 'So‘rov tasdiqlandi va ro‘yxatga olindi.'}</p>
           : eligible ? <form className="space-y-3" onSubmit={submit}>
+            {challengeId && <p role="status">{ru ? 'Код отправлен на email аккаунта. Проверьте также папку «Спам».' : 'Kod hisobingiz emailiga yuborildi. Spam papkasini ham tekshiring.'}</p>}
             {challengeId && <label className="block">{ru ? 'Код из письма' : 'Emaildagi tasdiqlash kodi'}
               <input className="ml-2 rounded-lg border p-2" value={code} onChange={e => setCode(e.target.value)}
                 required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} />
             </label>}
             <button type="submit" disabled={busy} className="rounded-lg bg-green-700 px-4 py-2 text-white disabled:opacity-60">
-              {challengeId ? (ru ? 'Подтвердить запрос' : 'So‘rovni tasdiqlash') : (ru ? 'Получить код' : 'Kod olish')}
+              {busy ? (ru ? 'Подождите…' : 'Kuting…') : challengeId ? (ru ? 'Подтвердить запрос' : 'So‘rovni tasdiqlash') : (ru ? 'Получить код' : 'Kod olish')}
             </button>
             {challengeId && <button type="button" disabled={busy} className="ml-3 underline" onClick={() => { setChallengeId(''); setCode(''); setError(''); }}>
               {ru ? 'Запросить новый код' : 'Yangi kod olish'}

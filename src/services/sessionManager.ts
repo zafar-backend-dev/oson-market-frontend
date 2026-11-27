@@ -500,6 +500,7 @@ export interface FetchWithAuthOptions {
   headers?: Record<string, string>;
   body?: BodyInit;
   credentials?: RequestCredentials;
+  signal?: AbortSignal;
   skipAuthRetry?: boolean;
   networkErrorMessage?: string;
 }
@@ -532,6 +533,7 @@ export async function fetchWithSessionRefresh(
         headers,
         credentials: options.credentials,
         body: options.body,
+        signal: options.signal,
       });
     } catch {
       throw new AuthApiError({
