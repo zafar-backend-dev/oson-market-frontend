@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal } from 'antd';
 import { API_BASE_URL } from '../constants';
 import type { Language } from '../types/auth';
@@ -17,6 +17,8 @@ export function AuthConsent({ language, value, onChange }: {
   const [revision, setRevision] = useState<Revision>();
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [reachedEnd, setReachedEnd] = useState(false);
+  const reader = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!kind) return;
@@ -40,7 +42,30 @@ export function AuthConsent({ language, value, onChange }: {
     };
   }, [kind, attempt]);
 
+  function checkEnd() {
+    const area = reader.current;
+    if (area && area.clientHeight > 0 && area.scrollHeight - area.clientHeight - area.scrollTop <= 4) setReachedEnd(true);
+  }
+
+  useEffect(() => {
+    if (!kind || !revision || !reader.current) return;
+    const area = reader.current;
+    const observer = new ResizeObserver(checkEnd);
+    observer.observe(area);
+    checkEnd();
+    return () => observer.disconnect();
+  }, [kind, revision, language]);
+
+  function confirmReading() {
+    if (!kind || !revision || !reachedEnd) return;
+    onChange(kind === 'terms' ? { ...value, termsAccepted: true }
+      : { ...value, privacyAcknowledged: true });
+    setKind(undefined);
+  }
+
   function openDocument(document: DocumentKind) {
+    setReachedEnd(false);
+    if (reader.current) reader.current.scrollTop = 0;
     setRevision(undefined);
     setError(false);
     setKind(document);
@@ -50,7 +75,7 @@ export function AuthConsent({ language, value, onChange }: {
     <div className="flex items-start gap-2">
       <input className="mt-1 accent-green-700" type="checkbox" checked={value.termsAccepted}
         aria-label={ru ? 'Я принимаю условия использования' : 'Foydalanish shartlariga roziman'}
-        onChange={e => onChange({ ...value, termsAccepted: e.target.checked })} />
+        onChange={e => e.target.checked ? openDocument('terms') : onChange({ ...value, termsAccepted: false })} />
       <span>{ru ? 'Я прочитал(а) и принимаю ' : 'Men '}
         <button type="button" className="underline" onClick={() => openDocument('terms')}>
           {ru ? 'условия использования' : 'foydalanish shartlarini'}
@@ -59,7 +84,7 @@ export function AuthConsent({ language, value, onChange }: {
     <div className="flex items-start gap-2">
       <input className="mt-1 accent-green-700" type="checkbox" checked={value.privacyAcknowledged}
         aria-label={ru ? 'Я ознакомился с политикой конфиденциальности' : 'Maxfiylik siyosati bilan tanishdim'}
-        onChange={e => onChange({ ...value, privacyAcknowledged: e.target.checked })} />
+        onChange={e => e.target.checked ? openDocument('privacy') : onChange({ ...value, privacyAcknowledged: false })} />
       <span>{ru ? 'Я ознакомился(-ась) с ' : 'Men '}
         <button type="button" className="underline" onClick={() => openDocument('privacy')}>
           {ru ? 'политикой конфиденциальности' : 'maxfiylik siyosati'}
@@ -68,10 +93,16 @@ export function AuthConsent({ language, value, onChange }: {
     <Modal open={!!kind} onCancel={() => setKind(undefined)} centered width={680}
       title={kind === 'terms' ? (ru ? 'Условия использования' : 'Foydalanish shartlari')
         : (ru ? 'Политика конфиденциальности' : 'Maxfiylik siyosati')}
-      footer={<button type="button" className="rounded-lg border px-4 py-2" onClick={() => setKind(undefined)}>
-        {ru ? 'Закрыть' : 'Yopish'}
-      </button>}>
-      <div className="max-h-[55dvh] overflow-y-auto overscroll-contain pr-2">
+      destroyOnHidden
+      footer={<div className="flex justify-end gap-2">
+        <button type="button" className="rounded-lg border px-4 py-2" onClick={() => setKind(undefined)}>
+          {ru ? 'Закрыть' : 'Yopish'}
+        </button>
+        {revision && reachedEnd && <button type="button" className="rounded-lg bg-green-700 px-4 py-2 text-white" onClick={confirmReading}>
+          {ru ? 'Да, я прочитал(а)' : 'Ha, o‘qidim'}
+        </button>}
+      </div>}>
+      <div ref={reader} onScroll={checkEnd} tabIndex={0} className="max-h-[55dvh] overflow-y-auto overscroll-contain pr-2">
         {revision ? <>
           <p className="mb-4 text-sm text-slate-500">{revision.version} · {new Date(revision.publishedAt).toLocaleDateString(language)}</p>
           <p className="whitespace-pre-wrap break-words leading-relaxed">{ru ? revision.contentRu : revision.contentUz}</p>
