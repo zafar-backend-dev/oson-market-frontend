@@ -116,3 +116,17 @@ export function AuthConsent({ language, value, onChange }: {
     </Modal>
   </fieldset>;
 }
+
+export function GoogleConsentHint({ language, value }: { language: Language; value: Consent }) {
+  const ru = language === 'ru';
+  if (value.termsAccepted && value.privacyAcknowledged) return null;
+  const document = value.termsAccepted
+    ? (ru ? 'Политику конфиденциальности' : 'Maxfiylik siyosatini')
+    : value.privacyAcknowledged
+      ? (ru ? 'Условия использования' : 'Foydalanish shartlarini')
+      : (ru ? 'Условия использования и Политику конфиденциальности' : 'Foydalanish shartlari va Maxfiylik siyosatini');
+  return <p role="status" className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-950">
+    {ru ? <>Чтобы продолжить с Google, откройте {document} в форме выше. Прокрутите каждый документ до конца и нажмите «Да, я прочитал(а)».</>
+      : <>Google orqali davom etish uchun yuqoridagi {document} oching. Har bir hujjatning oxiriga tushib, «Ha, o‘qidim» tugmasini bosing.</>}
+  </p>;
+}

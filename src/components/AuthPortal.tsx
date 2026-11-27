@@ -1,4 +1,4 @@
-import { AuthConsent, emptyConsent, type Consent } from './AuthConsent';
+import { AuthConsent, GoogleConsentHint, emptyConsent, type Consent } from './AuthConsent';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -829,6 +829,7 @@ export function AuthPortal({
                   {t.signIn.orDivider}
                 </Divider>
 
+                <GoogleConsentHint language={language} value={consent} />
                 <Button
                   size="large"
                   block
@@ -1118,6 +1119,7 @@ export function AuthPortal({
                   {t.signIn.orDivider}
                 </Divider>
 
+                <GoogleConsentHint language={language} value={consent} />
                 <Button
                   size="large"
                   block

@@ -1,4 +1,4 @@
-import { AuthConsent, emptyConsent, type Consent } from './AuthConsent';
+import { AuthConsent, GoogleConsentHint, emptyConsent, type Consent } from './AuthConsent';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Divider, Form, Input, Modal, Segmented } from 'antd';
 import { KeyRound, Lock, Mail, User } from 'lucide-react';
@@ -556,6 +556,7 @@ export function GuestAuthModal({
               {t.signIn.orDivider}
             </Divider>
 
+            <GoogleConsentHint language={language} value={consent} />
             <Button
               size="large"
               block
