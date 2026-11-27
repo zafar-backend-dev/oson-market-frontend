@@ -5,6 +5,8 @@ export type UserRole = 'USER' | 'ADMIN';
 export type AuthScreenMode = 'sign-in' | 'sign-up' | 'forgot-password';
 
 export interface SignUpPayload {
+  termsAccepted: boolean;
+  privacyAcknowledged: boolean;
   firstName: string;
   lastName: string;
   email: string;
@@ -18,6 +20,8 @@ export interface SignUpVerifyPayload {
 }
 
 export interface SignInPayload {
+  termsAccepted: boolean;
+  privacyAcknowledged: boolean;
   login: string;
   password: string;
 }

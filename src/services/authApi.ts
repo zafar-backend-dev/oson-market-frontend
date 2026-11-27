@@ -117,6 +117,8 @@ export const authApi = {
         email: payload.email.trim().toLowerCase(),
         username: payload.username.trim().toLowerCase(),
         password: payload.password,
+        termsAccepted: payload.termsAccepted,
+        privacyAcknowledged: payload.privacyAcknowledged,
       },
     });
   },
@@ -142,6 +144,8 @@ export const authApi = {
       body: {
         login: payload.login.trim().toLowerCase(),
         password: payload.password,
+        termsAccepted: payload.termsAccepted,
+        privacyAcknowledged: payload.privacyAcknowledged,
       },
     });
   },
@@ -390,6 +394,6 @@ export const authApi = {
   },
 
   getGoogleAuthorizationUrl(): string {
-    return `${API_BASE_URL}/oauth2/authorization/google`;
+    return `${API_BASE_URL}/oauth2/authorization/google?termsAccepted=true&privacyAcknowledged=true`;
   },
 };

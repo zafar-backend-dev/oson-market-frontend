@@ -1,3 +1,4 @@
+import { AuthConsent, emptyConsent, type Consent } from './AuthConsent';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -48,14 +49,14 @@ interface PendingChallengeState {
   challengeId: string;
   targetLabel: string;
   serverInfoMessage: string;
-  signInPayload?: { login: string; password: string };
+  signInPayload?: { login: string; password: string } & Consent;
   signUpPayload?: {
     firstName: string;
     lastName: string;
     email: string;
     username: string;
     password: string;
-  };
+  } & Consent;
   forgotEmail?: string;
 }
 
@@ -147,6 +148,9 @@ export function AuthPortal({
   const routeView = resolveAuthRoute(location.pathname);
 
   const [challenge, setChallenge] = useState<PendingChallengeState | null>(null);
+  const [consent, setConsent] = useState(emptyConsent);
+  const consentReady = consent.termsAccepted && consent.privacyAcknowledged;
+  useEffect(() => setConsent(emptyConsent), [routeView]);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [apiError, setApiError] = useState<{
@@ -342,10 +346,11 @@ export function AuthPortal({
   };
 
   const handleSignInStep1 = async (values: SignInFormValues) => {
+    if (!consentReady) return;
     clearError();
     setSubmitting(true);
     try {
-      const payload = { login: values.login, password: values.password };
+      const payload = { login: values.login, password: values.password, ...consent };
       const res = await authApi.signIn(payload, language);
       setChallenge({
         flowType: 'sign-in',
@@ -369,10 +374,12 @@ export function AuthPortal({
   };
 
   const handleSignUpStep1 = async (values: SignUpFormValues) => {
+    if (!consentReady) return;
     clearError();
     setSubmitting(true);
     try {
       const payload = {
+        ...consent,
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         email: values.email,
@@ -566,6 +573,7 @@ export function AuthPortal({
   };
 
   const handleGoogleRedirect = () => {
+    if (!consentReady) return;
     void authApi.startGoogleLogin(language);
   };
 
@@ -797,13 +805,15 @@ export function AuthPortal({
                     />
                   </Form.Item>
 
+                  <AuthConsent language={language} value={consent} onChange={setConsent} />
+
                   <Button
                     type="primary"
                     htmlType="submit"
                     size="large"
                     block
                     loading={submitting}
-                    disabled={resendCooldownSecondsLeft > 0}
+                    disabled={!consentReady || resendCooldownSecondsLeft > 0}
                   >
                     {resendCooldownSecondsLeft > 0 ? (
                       <span className="tabular-nums">
@@ -824,7 +834,7 @@ export function AuthPortal({
                   block
                   icon={<GoogleMark />}
                   onClick={handleGoogleRedirect}
-                  disabled={submitting}
+                  disabled={!consentReady || submitting}
                   className="!flex !items-center !justify-center !gap-2.5"
                 >
                   <span>{t.signIn.googleButton}</span>
@@ -1084,13 +1094,15 @@ export function AuthPortal({
                     />
                   </Form.Item>
 
+                  <AuthConsent language={language} value={consent} onChange={setConsent} />
+
                   <Button
                     type="primary"
                     htmlType="submit"
                     size="large"
                     block
                     loading={submitting}
-                    disabled={resendCooldownSecondsLeft > 0}
+                    disabled={!consentReady || resendCooldownSecondsLeft > 0}
                   >
                     {resendCooldownSecondsLeft > 0 ? (
                       <span className="tabular-nums">
@@ -1111,7 +1123,7 @@ export function AuthPortal({
                   block
                   icon={<GoogleMark />}
                   onClick={handleGoogleRedirect}
-                  disabled={submitting}
+                  disabled={!consentReady || submitting}
                   className="!flex !items-center !justify-center !gap-2.5"
                 >
                   <span>{t.signIn.googleButton}</span>

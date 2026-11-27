@@ -1,3 +1,4 @@
+import { AuthConsent, emptyConsent, type Consent } from './AuthConsent';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Divider, Form, Input, Modal, Segmented } from 'antd';
 import { KeyRound, Lock, Mail, User } from 'lucide-react';
@@ -62,14 +63,14 @@ interface ModalChallengeState {
   challengeId: string;
   targetLabel: string;
   serverInfoMessage: string;
-  signInPayload?: { login: string; password: string };
+  signInPayload?: { login: string; password: string } & Consent;
   signUpPayload?: {
     firstName: string;
     lastName: string;
     email: string;
     username: string;
     password: string;
-  };
+  } & Consent;
 }
 
 function GoogleMark() {
@@ -114,6 +115,9 @@ export function GuestAuthModal({
 
   const [tab, setTab] = useState<ModalTab>('sign-in');
   const [challenge, setChallenge] = useState<ModalChallengeState | null>(null);
+  const [consent, setConsent] = useState(emptyConsent);
+  const consentReady = consent.termsAccepted && consent.privacyAcknowledged;
+  useEffect(() => setConsent(emptyConsent), [tab, open]);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [apiError, setApiError] = useState<{ message: string; fields: string[] } | null>(null);
@@ -218,10 +222,11 @@ export function GuestAuthModal({
   };
 
   const handleSignInStep1 = async (values: SignInFormValues) => {
+    if (!consentReady) return;
     setApiError(null);
     setSubmitting(true);
     try {
-      const payload = { login: values.login, password: values.password };
+      const payload = { login: values.login, password: values.password, ...consent };
       const res = await authApi.signIn(payload, language);
       setChallenge({
         flowType: 'sign-in',
@@ -244,10 +249,12 @@ export function GuestAuthModal({
   };
 
   const handleSignUpStep1 = async (values: SignUpFormValues) => {
+    if (!consentReady) return;
     setApiError(null);
     setSubmitting(true);
     try {
       const payload = {
+        ...consent,
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         email: values.email,
@@ -352,6 +359,7 @@ export function GuestAuthModal({
   };
 
   const handleGoogleRedirect = () => {
+    if (!consentReady) return;
     savePendingProductOrder({
       productPath,
       productId: productId ?? '__cart__',
@@ -523,13 +531,14 @@ export function GuestAuthModal({
                 >
                   {tg.cancelButton}
                 </Button>
+                <AuthConsent language={language} value={consent} onChange={setConsent} />
                 <Button
                   type="primary"
                   htmlType="submit"
                   size="large"
                   block
                   loading={submitting}
-                  disabled={resendCooldownSecondsLeft > 0}
+                  disabled={!consentReady || resendCooldownSecondsLeft > 0}
                   className="!min-h-[44px]"
                 >
                   {resendCooldownSecondsLeft > 0 ? (
@@ -552,7 +561,7 @@ export function GuestAuthModal({
               block
               icon={<GoogleMark />}
               onClick={handleGoogleRedirect}
-              disabled={submitting}
+              disabled={!consentReady || submitting}
               className="!flex !items-center !justify-center !gap-2.5 !min-h-[44px]"
             >
               <span>{t.signIn.googleButton}</span>
@@ -791,13 +800,14 @@ export function GuestAuthModal({
                 >
                   {tg.cancelButton}
                 </Button>
+                <AuthConsent language={language} value={consent} onChange={setConsent} />
                 <Button
                   type="primary"
                   htmlType="submit"
                   size="large"
                   block
                   loading={submitting}
-                  disabled={resendCooldownSecondsLeft > 0}
+                  disabled={!consentReady || resendCooldownSecondsLeft > 0}
                   className="!min-h-[44px]"
                 >
                   {resendCooldownSecondsLeft > 0 ? (
