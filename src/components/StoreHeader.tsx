@@ -590,7 +590,7 @@ export function StoreHeader({
         },
         {
           key: 'admin-backups', path: '/admin/backups',
-          label: language === 'ru' ? 'Резервное копирование и безопасность' : 'Backup va xavfsizlik',
+          label: language === 'ru' ? 'Защита данных' : 'Ma’lumotlar himoyasi',
           icon: <Download className="size-4 shrink-0" />,
           active: cleanPath === '/admin/backups',
         },
