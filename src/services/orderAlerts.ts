@@ -102,3 +102,20 @@ export function watchOrderAlertTaps(openPath: (path: string) => void): () => voi
 export function showPromotionAlert(id: string, title: string, body: string, target: string) {
   return showAlert('oson_promotions', body, { type: 'PROMOTION', target }, 'promo-' + id, title);
 }
+
+export async function clearAccountAlerts(): Promise<void> {
+  shownNotifications.clear();
+  if (!Capacitor.isNativePlatform()) return;
+  const isAccountAlert = (extra?: Record<string, unknown>) => Boolean(extra?.orderId || extra?.type === 'CHAT_MESSAGE');
+  const delivered = await LocalNotifications.getDeliveredNotifications();
+  const notifications = delivered.notifications.filter(item => isAccountAlert(item.extra));
+  if (notifications.length) await LocalNotifications.removeDeliveredNotifications({ notifications });
+  const pending = await LocalNotifications.getPending();
+  const scheduled = pending.notifications.filter(item => isAccountAlert(item.extra));
+  if (scheduled.length) await LocalNotifications.cancel({ notifications: scheduled });
+  if (Capacitor.getPlatform() === 'android') {
+    const pushed = await PushNotifications.getDeliveredNotifications();
+    const accountPushes = pushed.notifications.filter(item => isAccountAlert(item.data));
+    if (accountPushes.length) await PushNotifications.removeDeliveredNotifications({ notifications: accountPushes });
+  }
+}

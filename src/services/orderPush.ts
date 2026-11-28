@@ -52,9 +52,9 @@ export function startOrderPush(language: Language, accessToken: () => string | n
 }
 
 export async function unregisterOrderPush(accessToken: string | null): Promise<void> {
-  if (Capacitor.getPlatform() !== 'android') return;
   const token = localStorage.getItem(DEVICE_KEY);
   localStorage.removeItem(DEVICE_KEY);
+  if (Capacitor.getPlatform() !== "android") return;
   const remove = token && accessToken ? fetch(deviceUrl + '/remove', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },

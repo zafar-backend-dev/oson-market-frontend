@@ -373,6 +373,7 @@ export const sessionManager = {
         } catch {
           errorBody = {};
         }
+        if (authEpoch !== startEpoch) throw new AuthApiError({ status: 401, code: 'auth.logged_out', message: getDefaultHttpErrorMessage(401, language) });
         const msg = errorBody.message || getDefaultHttpErrorMessage(401, language);
         invalidateSessionFromRefresh401(msg);
         throw new AuthApiError({
@@ -445,7 +446,7 @@ export const sessionManager = {
       if (inFlightRefresh?.promise === refreshPromise) {
         inFlightRefresh = null;
       }
-    });
+    }).catch(() => {});
 
     return refreshPromise;
   },

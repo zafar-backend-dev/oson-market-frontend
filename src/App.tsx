@@ -1,3 +1,10 @@
+import { App as NativeApp } from '@capacitor/app';
+import { useSessionCheck } from './services/useSessionCheck';
+import { useCart, clearPendingCheckoutDraft } from './contexts/CartContext';
+import { clearPendingProductOrder, clearPendingProductSocialDraft } from './utils/catalog';
+import { clearMobileGoogleAttempt } from './services/mobileGoogle';
+import { clearCachedGoogleCallbackParams } from './components/GoogleCallbackView';
+import { clearAccountAlerts } from './services/orderAlerts';
 import { AdminLegalPage } from './components/AdminLegalPage';
 import { LegalLinks, LegalPage } from './components/LegalPage';
 import { AdminAndroidReleasePage } from './components/AdminAndroidReleasePage';
@@ -158,6 +165,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
   const { message } = AntApp.useApp();
   const location = useLocation();
   const navigate = useNavigate();
+  const { clearCart } = useCart();
 
   const [session, setSession] = useState<AuthSession | null>(() =>
     sessionManager.getCurrentSession(),
@@ -206,8 +214,20 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
     });
   }, []);
 
+  const clearAccountData = useCallback(() => {
+    clearCart();
+    clearPendingCheckoutDraft();
+    clearPendingProductOrder();
+    clearPendingProductSocialDraft();
+    clearSavedReturnTo();
+    clearMobileGoogleAttempt();
+    clearCachedGoogleCallbackParams();
+    void clearAccountAlerts().catch(() => {});
+  }, [clearCart]);
+
   const clearLocalSession = useCallback(
     (notice?: { type: 'info' | 'warning' | 'success' | 'error'; text: string }) => {
+      clearAccountData();
       sessionManager.clearLocalSession();
       setProfile(null);
       setBootstrapError(null);
@@ -216,11 +236,13 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
         setExternalNotice(notice);
       }
     },
-    [],
+    [clearAccountData],
   );
 
   useEffect(() => {
     return sessionManager.subscribeInvalidated(({ message: reasonMsg }) => {
+      clearAccountData();
+      void sessionManager.logout(language);
       setProfile(null);
       setBootstrapError(null);
       setBootstrapping(false);
@@ -241,11 +263,21 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
         text: warningText,
       });
       if (!isAuthRoutePath(pathname)) {
-        saveCurrentReturnTo();
         navigate('/auth/sign-in', { replace: true });
       }
     });
-  }, [language, navigate, showWarningOnce]);
+  }, [clearAccountData, language, navigate, showWarningOnce]);
+
+  const checkSession = useCallback(async (_token: string, signal: AbortSignal) => {
+    await fetchWithSessionRefresh('/api/auth/me', { method: 'GET', language, signal });
+  }, [language]);
+  useSessionCheck(session?.accessToken, checkSession);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listener = NativeApp.addListener('resume', () => window.dispatchEvent(new Event('oson-session-check')));
+    return () => { void listener.then(handle => handle.remove()).catch(() => {}); };
+  }, []);
 
   const syncProfileLanguage = useCallback(
     (user: UserProfile) => {
@@ -335,6 +367,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
 
       try {
         const user = await authApi.getProfile(resolvedSession.accessToken, activeLang);
+        if (!sessionManager.getCurrentSession()) return;
         setProfile(user);
         syncProfileLanguage(user);
         setBootstrapError(null);
@@ -589,7 +622,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
   }, [language, navigate]);
 
   const clearDeletedAccountSession = () => {
-    clearSavedReturnTo();
+    clearAccountData();
     setProfile(null);
     setBootstrapError(null);
     setBootstrapping(false);

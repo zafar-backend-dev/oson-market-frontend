@@ -406,7 +406,8 @@ export function NotificationProvider({
         setIsSocketReady(false);
       };
 
-      socket.onclose = () => {
+      socket.onclose = event => {
+        if (event.code === 1008) window.dispatchEvent(new Event("oson-session-check"));
         if (authTimeoutRef.current !== null) {
           window.clearTimeout(authTimeoutRef.current);
           authTimeoutRef.current = null;
