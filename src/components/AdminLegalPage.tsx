@@ -9,7 +9,7 @@ type Request = (method: 'GET' | 'POST', path: string, body?: string) => Promise<
 export function AdminLegalPage({ language, request }: { language: Language; request: Request }) {
   const ru = language === 'ru';
   const deletionStates = ru
-    ? { PENDING: 'Ожидает обработки', PROCESSING: 'На обработке', COMPLETED: 'Удалён', FAILED: 'Ошибка удаления' }
+    ? { PENDING: 'Ожидает обработки', PROCESSING: 'На обработке', COMPLETED: 'Удалён', FAILED: 'Повторная попытка запланирована' }
     : { PENDING: 'Kutilmoqda', PROCESSING: 'Bajarilmoqda', COMPLETED: 'O‘chirildi', FAILED: 'O‘chirishda xato' };
   const [kind, setKind] = useState<'privacy' | 'terms' | 'delete'>('privacy');
   const [history, setHistory] = useState<Revision[]>([]);
@@ -126,16 +126,14 @@ export function AdminLegalPage({ language, request }: { language: Language; requ
   }
 
   async function complete(row: Deletion) {
-    if (processing || !window.confirm(ru
-      ? 'Подтвердите, что заказы и расчёты завершены. Аккаунт и персональные данные будут удалены.'
-      : 'Buyurtmalar va hisob-kitoblar yakunlanganini tasdiqlang. Hisob va shaxsiy ma’lumotlar o‘chiriladi.')) return;
+    if (processing) return;
     setProcessing(row.accountId);
     setDeletionError(false);
     try {
       const response = await request('POST', '/api/admin/account-deletion-requests/' + row.accountId + '/complete',
         JSON.stringify({ obligationsSettled: true }));
       if (!response.ok) throw new Error();
-      setRows(previous => previous.map(item => item.accountId === row.accountId ? { ...item, status: 'COMPLETED' } : item));
+      setRows(previous => previous.map(item => item.accountId === row.accountId ? { ...item, status: response.status === 204 ? 'COMPLETED' : 'PROCESSING' } : item));
     } catch {
       setDeletionError(true);
     } finally {
@@ -201,7 +199,7 @@ export function AdminLegalPage({ language, request }: { language: Language; requ
           {row.accountId} · {row.verifiedAt ? new Date(row.verifiedAt).toLocaleString(language) : '—'} · {deletionStates[row.status]}
           {row.status !== 'COMPLETED' && <button type="button" className="ml-3 rounded border px-2 py-1 text-red-700"
             disabled={!!processing} onClick={() => void complete(row)}>
-            {ru ? 'Завершить удаление' : 'O‘chirishni yakunlash'}
+            {ru ? 'Повторить проверку' : 'O‘chirishni yakunlash'}
           </button>}
         </li>)}
       </ul>

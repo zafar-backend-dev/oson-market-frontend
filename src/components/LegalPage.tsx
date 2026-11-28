@@ -1,3 +1,4 @@
+import { clearPendingCheckoutDraft, useCart } from '../contexts/CartContext';
 import { LegalMarkdown } from './LegalMarkdown';
 import { API_BASE_URL } from '../constants';
 import { useEffect, useState, type FormEvent } from 'react';
@@ -33,13 +34,15 @@ export function LegalLinks({ language, profile = false }: { language: Language; 
 
 type Request = (method: 'POST', path: string, body?: string, signal?: AbortSignal) => Promise<Response>;
 
-export function LegalPage({ kind, language, request, eligible }: {
+export function LegalPage({ kind, language, request, eligible, onAccountDeleted }: {
   kind: 'privacy' | 'terms' | 'delete' | 'contact' | 'about';
   language: Language;
   request: Request;
   eligible: boolean;
+  onAccountDeleted?: () => void;
 }) {
   const ru = language === 'ru';
+  const { clearCart } = useCart();
   const [challengeId, setChallengeId] = useState('');
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
@@ -106,6 +109,11 @@ export function LegalPage({ kind, language, request, eligible }: {
       if (challengeId) {
         setReceipt((await response.json()).receipt);
         setSubmitted(true);
+        if (eligible) {
+          clearCart();
+          clearPendingCheckoutDraft();
+          onAccountDeleted?.();
+        }
       }
       else {
         const payload = await response.json();
@@ -137,7 +145,7 @@ export function LegalPage({ kind, language, request, eligible }: {
         <Link className="underline" to="/privacy-policy">{ru ? 'Политика конфиденциальности' : 'Maxfiylik siyosati'}</Link>
         {submitted ? <>
           <p role="status">{deletionStatus === 'COMPLETED' ? (ru ? 'Аккаунт удалён.' : 'Hisob o‘chirildi.')
-            : deletionStatus === 'FAILED' ? (ru ? 'Удаление не завершено. Обратитесь в поддержку.' : 'O‘chirish yakunlanmadi. Yordam xizmatiga murojaat qiling.')
+            : deletionStatus === 'FAILED' ? (ru ? 'Удаление временно приостановлено. Система повторит попытку автоматически.' : "O'chirish vaqtincha to'xtadi. Tizim avtomatik qayta urinadi.")
             : (ru ? 'Запрос подтверждён и ожидает обработки.' : 'So‘rov tasdiqlandi va bajarilishi kutilmoqda.')}</p>
           {receipt && <button type="button" className="underline" disabled={busy} onClick={() => void refreshStatus()}>
             {ru ? 'Проверить статус' : 'Holatni tekshirish'}

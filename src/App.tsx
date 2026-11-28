@@ -588,6 +588,14 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
     navigate('/auth/sign-in', { replace: true });
   }, [language, navigate]);
 
+  const clearDeletedAccountSession = () => {
+    clearSavedReturnTo();
+    setProfile(null);
+    setBootstrapError(null);
+    setBootstrapping(false);
+    void sessionManager.logout(language);
+  };
+
   const requestAndroidRelease = useCallback((method: 'GET' | 'PUT' | 'POST', path: string, body?: string, signal?: AbortSignal) =>
     fetchWithSessionRefresh(path, { method, body, signal, language, accessToken: session?.accessToken, credentials: 'omit', headers: body ? { 'Content-Type': 'application/json' } : undefined }), [language, session?.accessToken]);
   const isAuthenticated = Boolean(session && profile);
@@ -611,7 +619,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
         <Routes>
         <Route path="/privacy-policy" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="privacy" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
         <Route path="/terms" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="terms" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
-        <Route path="/delete-account" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="delete" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
+        <Route path="/delete-account" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="delete" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} onAccountDeleted={clearDeletedAccountSession} /></>} />
         <Route path="/contact" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><LegalPage kind="contact" language={language} request={requestAndroidRelease} eligible={profile?.role === 'USER'} /></>} />
       {!Capacitor.isNativePlatform() && <Route path="/chat" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AppDownloadPage key="chat" language={language} apkUrl={ANDROID_APK_URL} chat /></>} />}
       <Route path="/download" element={<><StoreHeader language={language} profile={profile} profileComplete={profile ? isProfileComplete(profile) : false} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AppDownloadPage key="download" language={language} apkUrl={ANDROID_APK_URL} /></>} />
