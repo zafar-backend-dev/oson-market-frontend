@@ -5,6 +5,7 @@ import { clearPendingProductOrder, clearPendingProductSocialDraft } from './util
 import { clearMobileGoogleAttempt } from './services/mobileGoogle';
 import { clearCachedGoogleCallbackParams } from './components/GoogleCallbackView';
 import { clearAccountAlerts } from './services/orderAlerts';
+import { AdminBackupPage } from './components/AdminBackupPage';
 import { AdminLegalPage } from './components/AdminLegalPage';
 import { LegalLinks, LegalPage } from './components/LegalPage';
 import { AdminAndroidReleasePage } from './components/AdminAndroidReleasePage';
@@ -868,6 +869,7 @@ function OsonMarketShell({ language, onUpdateLanguage }: OsonMarketShellProps) {
               fetchWithSessionRefresh(path, { method: init?.method === 'POST' ? 'POST' : 'GET',
                 language, accessToken: session.accessToken, body: init?.body ?? undefined, credentials: 'omit' })} />
           </> : <Navigate to="/" replace />} />}
+          <Route path="/admin/backups" element={profile.role === 'ADMIN' ? <><StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AdminBackupPage language={language} request={requestAndroidRelease} /></> : <Navigate to="/" replace />} />
           <Route path="/admin/legal" element={profile.role === 'ADMIN' ? <><StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} /><AdminLegalPage language={language} request={requestAndroidRelease} /></> : <Navigate to="/" replace />} />
           <Route path="/admin/android-release" element={profile.role === 'ADMIN' ? <>
             <StoreHeader language={language} profile={profile} profileComplete={isProfileComplete(profile)} onLanguageChange={handleLanguageChange} onLogout={handleLogout} />

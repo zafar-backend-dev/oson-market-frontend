@@ -99,7 +99,8 @@ function AdaptiveNavRow({
     const totalAllWidth =
       widths.reduce((sum, w) => sum + w, 0) + Math.max(0, items.length - 1) * gap;
 
-    if (totalAllWidth <= availableWidth - safetyMargin) {
+    const pinnedOverflow = items.findIndex(item => item.key === 'admin-backups');
+    if (pinnedOverflow < 0 && totalAllWidth <= availableWidth - safetyMargin) {
       setVisibleCount((prev) => (prev === items.length ? prev : items.length));
       return;
     }
@@ -108,7 +109,7 @@ function AdaptiveNavRow({
     let usedWidth = 0;
     let fitCount = 0;
 
-    for (let i = 0; i < items.length; i += 1) {
+    for (let i = 0; i < (pinnedOverflow < 0 ? items.length : pinnedOverflow); i += 1) {
       const nextItemWidth = widths[i];
       const nextUsed = usedWidth + (i > 0 ? gap : 0) + nextItemWidth;
       const reservedForMore = gap + moreWidth;
@@ -586,6 +587,12 @@ export function StoreHeader({
           label: t.workspace.menuSiteLogo,
           icon: <ImageIcon className="w-4 h-4 shrink-0" />,
           active: cleanPath === '/admin/site-logo',
+        },
+        {
+          key: 'admin-backups', path: '/admin/backups',
+          label: language === 'ru' ? 'Резервное копирование и безопасность' : 'Backup va xavfsizlik',
+          icon: <Download className="size-4 shrink-0" />,
+          active: cleanPath === '/admin/backups',
         },
         {
           key: 'admin-legal', path: '/admin/legal',
